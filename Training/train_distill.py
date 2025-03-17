@@ -48,7 +48,7 @@ EPOCHS2 = 150
 
 PATIENCE = 15
 
-alpha = 1.0   #  0.5  # Peso de las hard labels en la mezcla (1-alpha = peso de soft labels)
+alpha = 0.5   #  0.5  # Peso de las hard labels en la mezcla (1-alpha = peso de soft labels)
 temperature = 1.0  # Parámetro para suavizar soft labels
 
 
@@ -419,13 +419,13 @@ print('Accuracy {:.2f}%'.format( 100*sum( (predIdxs.squeeze()==true_classes))/ t
 
 print(classification_report(true_classes, predIdxs)) #, target_names=LABELS))
 
-
+sys.exit(0)
 # ---- From ImageDataGenerator
 print('ImageDataGenerator')
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 test_datagen = ImageDataGenerator(rescale=rescaling, preprocessing_function=None)
 test_generator = test_datagen.flow_from_directory(
-    test_image_path, target_size=(IMG_HEIGHT, IMG_WIDTH), batch_size=BATCH_SIZE, class_mode='categorical', shuffle=False)
+    TEST_IMAGE_DIR, target_size=(IMG_HEIGHT, IMG_WIDTH), batch_size=BATCH_SIZE, class_mode='categorical', shuffle=False)
     
 true_classes = test_generator.classes[test_generator.index_array].squeeze()  # esto debe ir antes que predict() 
 predIdxs = model.predict_generator(test_generator,steps=None) #,steps=1 )

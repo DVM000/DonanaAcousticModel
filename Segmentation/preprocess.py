@@ -109,7 +109,8 @@ def split_and_spectrogram(PATH, PATHsave):
             spec_image = Image.fromarray(spec_array.T)#.astype('uint8'))
             #spec_image =  Image.fromarray(np.array([spec_array, spec_array, spec_array]).T) # image
             #spec_image.save("{}{}-{:03d}.png".format(PATHsave+'/',f.split('.')[0],i,len(chunks))) # '.png'))
-            spec_image.save("{}{}-{:03d}.png".format(PATHsave+'/',os.path.splitext(f)[0],i,len(chunks))) # '.png'))
+            #spec_image.save("{}{}-{:03d}.png".format(PATHsave+'/',os.path.splitext(f)[0],i,len(chunks))) # '.png'))
+            spec_image.save("{}{}.png".format(PATHsave+'/',os.path.splitext(f)[0])) # '.png')) # Do NOT add sufix indicating number of segment
             n_processed += 1
     except:
         print(f"[Error] Cannot process audio file {os.path.join(PATH,f)}")       
@@ -125,7 +126,7 @@ BANDPASS_FMAX = 15000
 SIG_LENGTH = 3.0		# input interval cambiado
 SIG_OVERLAP = 0			# overlap between consecutive intervals
 SIG_MINLEN = SIG_LENGTH 	# minimum length of audio chunk. For training, take SIG_LENGTH-duration chunks
-MAX_LIMIT = 10000                # maximum number of files to generate
+MAX_LIMIT = 5000                # maximum number of files to generate
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser()
