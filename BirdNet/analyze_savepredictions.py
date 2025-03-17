@@ -1,4 +1,13 @@
 """Module to analyze audio samples.
+
+   - All model predictions (vector) are also saved into npy files, to be used for network distillation for example.
+      Allow using threshold.
+      Allow filtering by list.
+      Only compatible with 'table' format. 
+         
+   TODO: (problem with threads)
+   - When prediction confidence is higher than the specified threshold, segments are extracted. 
+      Do NOT Allow max_segment argument. #but NO per species.
 """
 
 import argparse
@@ -25,7 +34,11 @@ KALEIDOSCOPE_HEADER = (
 )
 CSV_HEADER = "Start (s),End (s),Scientific name,Common name,Confidence,File\n"
 SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
+PARENT_DIR = os.path.join(SCRIPT_DIR, '../')
 
+#segments = []
+#afiles =   []
+#N_SEGMENTS = 0
 
 def loadCodes():
     """Loads the eBird codes.
@@ -54,7 +67,7 @@ def generate_raven_table(timestamps: list[str], result: dict[str, list], afile_p
 
     predictions = {}
     segments = []
-    
+
     # Extract valid predictions for every timestamp
     for timestamp in timestamps:
         rstring = ""
@@ -72,6 +85,7 @@ def generate_raven_table(timestamps: list[str], result: dict[str, list], afile_p
                 interesting_timestamp = True
                 
                 segments.append({"audio": afile_path, "start": float(start), "end": float(end), "species": species_sci, "confidence": c[1]})
+                #afiles.append(afile_path)
                 
         if interesting_timestamp:
             predictions[timestamp] = [c[1] for c in result[timestamp]] # save predictions
@@ -94,9 +108,9 @@ def generate_raven_table(timestamps: list[str], result: dict[str, list], afile_p
     #print(segments)
     for i, timestamp in enumerate(predictions.keys()):
         start, end = timestamp.split("-", 1)
-        file_name = "{}_{}_{:.1f}s_{:.1f}s.npy".format(
+        file_name = "{}_{:.1f}s_{:.1f}s.npy".format(
                     afile_path.rsplit(os.sep, 1)[-1].rsplit(".", 1)[0],
-                    i+1,
+                    #i+1,
                     float(start),
                     float(end),
                 )
@@ -104,7 +118,7 @@ def generate_raven_table(timestamps: list[str], result: dict[str, list], afile_p
         np.save(file_path, predictions[timestamp])
     
     # Extract segments
-    extractSegments(((afile_path, segments), cfg.SIG_LENGTH, cfg.getConfig()))
+    #extractSegments(((afile_path, segments), cfg.SIG_LENGTH, cfg.getConfig()))
     
 
 def generate_audacity(timestamps: list[str], result: dict[str, list], result_path: str) -> str:
@@ -599,6 +613,10 @@ def extractSegments(item: tuple[tuple[str, list[dict]], float, dict[str]]):
     segments = item[0][1]
     seg_length = item[1]
     cfg.setConfig(item[2])
+    
+    #global N_SEGMENTS
+    #if N_SEGMENTS > cfg.MAX_SEGMENTS:
+    #    return True
 
     # Status
     print(f"Extracting segments from {afile}")
@@ -628,7 +646,7 @@ def extractSegments(item: tuple[tuple[str, list[dict]], float, dict[str]]):
                 seg_sig = sig[int(start) : int(end)]
 
                 # Make output path
-                outpath = os.path.join(cfg.OUTPUT_PATH, seg["species"])
+                outpath = os.path.join(cfg.OUTPUT_PATH, 'segments', seg["species"])
                 os.makedirs(outpath, exist_ok=True)
 
                 # Save segment
@@ -641,7 +659,9 @@ def extractSegments(item: tuple[tuple[str, list[dict]], float, dict[str]]):
                 )
                 seg_path = os.path.join(outpath, seg_name)
                 audio.saveSignal(seg_sig, seg_path)
-
+                
+                #N_SEGMENTS = N_SEGMENTS+1
+                
         except Exception as ex:
             # Write error log
             print(f"Error: Cannot extract segments from {afile}.", flush=True)
@@ -689,6 +709,10 @@ if __name__ == "__main__":
         type=float,
         default=0.0,
         help="Overlap of prediction segments. Values in [0.0, 2.9]. Defaults to 0.0.",
+    )
+    
+    parser.add_argument(
+        "--max_segments", type=int, default=100, help="Number of randomly extracted segments per species."
     )
 
     class UniqueSetAction(argparse.Action):
@@ -763,6 +787,8 @@ if __name__ == "__main__":
     cfg.LABELS = utils.readLines(cfg.LABELS_FILE)
 
     cfg.SKIP_EXISTING_RESULTS = args.skip_existing_results
+    
+    cfg.MAX_SEGMENTS = max(1, int(args.max_segments))
 
     # Set custom classifier?
     if args.classifier is not None:
@@ -800,7 +826,7 @@ if __name__ == "__main__":
         if not args.slist:
             cfg.SPECIES_LIST_FILE = None
         else:
-            cfg.SPECIES_LIST_FILE = os.path.join(SCRIPT_DIR, args.slist)
+            cfg.SPECIES_LIST_FILE = os.path.join(PARENT_DIR, args.slist)
 
             if os.path.isdir(cfg.SPECIES_LIST_FILE):
                 cfg.SPECIES_LIST_FILE = os.path.join(cfg.SPECIES_LIST_FILE, "species_list.txt")
@@ -880,6 +906,11 @@ if __name__ == "__main__":
         print(f"Combining results, writing to {cfg.OUTPUT_PATH}...", end="", flush=True)
         combineResults(result_files)
         print("done!", flush=True)
+     
+    # To do this after all, we can not leverage asyncrhonous Pool...    
+    #for afile_path,segment in zip(afiles,segments):
+    #    extractSegments(((afile_path, segments), cfg.SIG_LENGTH, cfg.getConfig()))
+    
 
     # A few examples to test
     # python3 analyze.py --i example/ --o example/ --slist example/ --min_conf 0.5 --threads 4

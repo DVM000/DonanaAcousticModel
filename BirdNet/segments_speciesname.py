@@ -1,6 +1,10 @@
 """Extract segments from audio files based on BirdNET detections.
 
 Can be used to save the segments of the audio files for each detection.
+
+Introduced changes:
+- Save segments into SpeciesName folder.
+- Do not add seg_cnt to segment name.
 """
 
 import argparse
@@ -381,10 +385,10 @@ def extractSegments(item: tuple[tuple[str, list[dict]], float, dict[str]]):
                 os.makedirs(outpath, exist_ok=True)
 
                 # Save segment
-                seg_name = "{:.3f}_{}_{}_{:.1f}s_{:.1f}s.wav".format(
-                    seg["confidence"],
-                    seg_cnt,
+                seg_name = "{}_{:.1f}s_{:.1f}s.wav".format(
+                    #seg["confidence"],
                     seg["audio"].rsplit(os.sep, 1)[-1].rsplit(".", 1)[0],
+                    #seg_cnt,
                     seg["start"],
                     seg["end"],
                 )

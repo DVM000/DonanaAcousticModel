@@ -114,6 +114,7 @@ plt.show()
 plt.savefig('DistribucionClases.png')
 #sys.exit(0)
 
+
 # Modelo
 #base_model = MobileNetV2(weights="imagenet", include_top=False, input_shape=(IMG_HEIGHT, IMG_WIDTH, 3))
 if MODEL=='mobilenet':
