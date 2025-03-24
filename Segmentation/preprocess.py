@@ -14,7 +14,7 @@ warnings.simplefilter("error", RuntimeWarning)
 
 
 import birdnet_util.audio as audio
-from birdnet_util.audio0 import spectrogram
+from birdnet_util.audio0 import spectrogram #, spectrogram224
 #import birdnet_util.config as cfg
 
 
@@ -30,7 +30,6 @@ import argparse
 # Si vamos a usar el espectrograma de BirdNet, mejor samplear a 48000 (con openAudioFile o indicandolo en librosa.load), 
 #  o si no perderemos las altas frecuencias del espectrograma
     
-
 def silence_removal(x,top_db=60, frame_length=2048, hop_length=512):
   import librosa
   split_sound = librosa.effects.split(x, top_db=top_db, frame_length=int(frame_length), hop_length=int(hop_length))         
@@ -48,7 +47,7 @@ def dBFS(x):
     return 20 * np.log10(rms(x))
     
   
-def split_and_spectrogram(PATH, PATHsave):
+def split_and_spectrogram(PATH, PATHsave, sufix=False):
   
   listfiles = os.listdir(PATH)
   listfiles.sort()
@@ -92,7 +91,8 @@ def split_and_spectrogram(PATH, PATHsave):
             # Data augmentation (time domain) -> TO DO
            
             # Compute spectrogram
-            spec,_ = spectrogram(y,rate)# shape=(128,128)) #,shape=(NMEL,RESH))#[..., np.newaxis]  # cambiado
+            # more than 64 filters give us: UserWarning: Empty filters detected in mel frequency basis. Some channels will produce empty responses. Try increasing your sampling rate (and fmax) or reducing n_mels.
+            spec,_ = spectrogram(y,rate, shape=(128,224))#shape=(64,384))# shape=(128,128)) #,shape=(NMEL,RESH))#[..., np.newaxis]  # cambiado
             #spec = librosa.feature.melspectrogram(y=y, sr=rate, n_mels=224, hop_length=int(len(y) / (224 - 1)), fmin=BANDPASS_FMIN, fmax=BANDPASS_FMAX)
             #spec = librosa.power_to_db(spec)
             #spec = librosa.feature.melspectrogram(y=y, sr=rate, n_mels=128)
@@ -109,8 +109,8 @@ def split_and_spectrogram(PATH, PATHsave):
             spec_image = Image.fromarray(spec_array.T)#.astype('uint8'))
             #spec_image =  Image.fromarray(np.array([spec_array, spec_array, spec_array]).T) # image
             #spec_image.save("{}{}-{:03d}.png".format(PATHsave+'/',f.split('.')[0],i,len(chunks))) # '.png'))
-            #spec_image.save("{}{}-{:03d}.png".format(PATHsave+'/',os.path.splitext(f)[0],i,len(chunks))) # '.png'))
-            spec_image.save("{}{}.png".format(PATHsave+'/',os.path.splitext(f)[0])) # '.png')) # Do NOT add sufix indicating number of segment
+            if sufix:  spec_image.save("{}{}-{:03d}.png".format(PATHsave+'/',os.path.splitext(f)[0],i,len(chunks))) # '.png')) # Add sufix indicating number of segment
+            else:      spec_image.save("{}{}.png".format(PATHsave+'/',os.path.splitext(f)[0])) # '.png')) # Do NOT add sufix indicating number of segment
             n_processed += 1
     except:
         print(f"[Error] Cannot process audio file {os.path.join(PATH,f)}")       
@@ -126,7 +126,7 @@ BANDPASS_FMAX = 15000
 SIG_LENGTH = 3.0		# input interval cambiado
 SIG_OVERLAP = 0			# overlap between consecutive intervals
 SIG_MINLEN = SIG_LENGTH 	# minimum length of audio chunk. For training, take SIG_LENGTH-duration chunks
-MAX_LIMIT = 5000                # maximum number of files to generate
+MAX_LIMIT = 1000                # maximum number of files to generate
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser()
@@ -136,11 +136,14 @@ if __name__ == "__main__":
 		            default = './ejemplo/Falconaumanni/')
 	parser.add_argument("--p", help="Data process", choices=['remove_silence','interval_split','spectrogram','birdnet_spectrogram', 'all'], action="store",
 		            default = 'all')
+	parser.add_argument("--sufix", help="Add idx sufix to img name", action="store", type=bool,
+		            default = False)
 		            
 	args = parser.parse_args()
 	PATH = args.i
 	PATHsave = args.o
 	proc = args.p
+	sufix = args.sufix
 
 	if not os.path.exists(PATHsave):
             os.makedirs(PATHsave)
@@ -151,5 +154,5 @@ if __name__ == "__main__":
 	# --------------------------------------------------------------------------
 	if proc=='all':
 	 
-	    split_and_spectrogram(PATH, PATHsave)
+	    split_and_spectrogram(PATH, PATHsave, sufix)
 	  

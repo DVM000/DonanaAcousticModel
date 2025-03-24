@@ -1,3 +1,4 @@
+import sys
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
@@ -10,15 +11,16 @@ import matplotlib.pyplot as plt
 
 from tensorflow.keras.applications.imagenet_utils import preprocess_input
 
-#from augmentdata import data_augmentation
+from augmentdata import data_augmentation
 
 MODEL = 'mobilenet'
 
+# ---------------------- PARAMETERS ---------------------- #
 # Parametros (TODO: cargar configuracion de un fichero)
 IMG_HEIGHT = 64 # 128 # cuadrado 128x128?
-IMG_WIDTH = 512
+IMG_WIDTH = 384 #512
 CHANNELS = 3
-NUM_CLASSES = 9 #
+#NUM_CLASSES = 11 # obtained from IamgeDataGenerator
 BATCH_SIZE = 32
 
 if MODEL=='mobilenet':
@@ -40,31 +42,12 @@ EPOCHS2 = 150
 PATIENCE = 15
 
 # Datos
-TRAIN_DIR = "ejemplo_128_1s/train" # 93% / 71% / 63%
-VALID_DIR = "ejemplo_128_1s/val"
-TEST_DIR = "ejemplo_128_1s/test"
+TRAIN_DIR = "/tfm-external/birdnet-output_train/imgs/"  # Ruta de la carpeta con imágenes organizadas por categorías
+VALID_DIR = "/tfm-external/birdnet-output_val/imgs/"  # Ruta de la carpeta con imágenes organizadas por categorías
+TEST_DIR = "/tfm-external/birdnet-output_test/imgs/"  # Ruta de la carpeta con imágenes organizadas por categorías
 
-TRAIN_DIR = "ejemplo_normalv2/train" # 76% / 71% / 66%
-VALID_DIR = "ejemplo_normalv2/val"
-TEST_DIR = "ejemplo_normalv2/test"
 
-TRAIN_DIR = "ejemplo_peaksmaad/train" # 78% / 79% / 73%
-VALID_DIR = "ejemplo_peaksmaad/val"
-TEST_DIR = "ejemplo_peaksmaad/test"
-
-TRAIN_DIR = "ejemplo_noisesep/train" # NoiseSeparation original: 80/82/75.
-VALID_DIR = "ejemplo_noisesep/val"
-TEST_DIR = "ejemplo_noisesep/test"
-
-TRAIN_DIR = "ejemplo_birdnet05/train" # minconf=0.1 -> 90% / 84% / 87% . minconf=0.5 -> 90/95/93% 
-VALID_DIR = "ejemplo_birdnet05/val"
-TEST_DIR = "ejemplo_birdnet05/test"
-'''
-TRAIN_DIR = "ejemploN_normal/train" # 5 especies 87% / 77% / 79%
-VALID_DIR = "ejemploN_normal/val"
-TEST_DIR = "ejemploN_normal/test"
-'''
-
+# ---------------------- DATA LOADING AND PROCESSING. DATASET ---------------------- #
 def to_rgb(image):
     return np.stack([image]*3, axis=-1)
 
@@ -77,8 +60,8 @@ else:
     
 train_datagen = ImageDataGenerator(
     rescale= rescaling, #1.0 / 255.0,
-    #preprocessing_function=data_augmentation,
-    preprocessing_function=preprocessing,
+    preprocessing_function=data_augmentation,
+    #preprocessing_function=preprocessing,
     #rotation_range=15,
     width_shift_range=0.1,
     #height_shift_range=0.1,
@@ -95,7 +78,7 @@ valid_generator = valid_datagen.flow_from_directory(
 
 LABELS = list(train_generator.class_indices.keys())
 print(f"Target categories {LABELS}")
-
+NUM_CLASSES = len(LABELS)
 
 # Gestionar desbalanceo
 class_weights = compute_class_weight(
@@ -104,6 +87,7 @@ class_weights = compute_class_weight(
     y=train_generator.classes
 )
 class_weights = dict(enumerate(class_weights))
+
 
 labels, counts = np.unique(train_generator.classes, return_counts=True)
 plt.bar(labels, counts)
@@ -114,11 +98,21 @@ plt.show()
 plt.savefig('DistribucionClases.png')
 #sys.exit(0)
 
+# Check dataset
+'''image, label = train_generator.next()
+print("Image shape:", image.shape)
+print("Label shape:", label.shape)
+print(label)
+print(image.max(), image.min())
+#print(image)
+sys.exit(0)'''
 
-# Modelo
+
+
+# ---------------------- DEFINE MODEL ---------------------- #
 #base_model = MobileNetV2(weights="imagenet", include_top=False, input_shape=(IMG_HEIGHT, IMG_WIDTH, 3))
 if MODEL=='mobilenet':
-    base_model = MobileNet(weights="imagenet", include_top=False, input_shape=(IMG_HEIGHT, IMG_WIDTH, 3))
+    base_model = MobileNet(weights="imagenet", include_top=False, input_shape=(IMG_HEIGHT, IMG_WIDTH, 3)) 
 else:
     base_model = EfficientNetB0(weights="imagenet", include_top=False, input_shape=(IMG_HEIGHT, IMG_WIDTH, 3))
 
@@ -131,6 +125,11 @@ model = keras.Sequential([
     layers.Dropout(0.4),  
     layers.Dense(NUM_CLASSES, activation='softmax')
 ])
+
+#print(model.input)
+#sys.exit(0)
+
+# ---------------------- TRAIN MODEL ---------------------- #
 
 # (1) Entrenar solo el 'head'
 # ----------------------------------------------------------------------
@@ -149,6 +148,7 @@ model.summary()
 
 history = model.fit(
     train_generator,
+    #steps_per_epoch=100, # cambiado
     validation_data=valid_generator,
     epochs=EPOCHS1,
     class_weight=class_weights,  # desalanceo de clases
@@ -164,7 +164,7 @@ print((model.layers[0]).layers[-2].get_weights()[0])
 for layer in model.layers:
     layer.trainable = True
     
-for layer in (model.layers[0]).layers[:-UNFREEZE]:#[:100]:
+for layer in (model.layers[0]).layers[:-UNFREEZE]:#[:100]: 
     layer.trainable = False
         
 model.summary()
@@ -191,6 +191,7 @@ reduce_lr = ReduceLROnPlateau(
 history_fine = model.fit(
     train_generator,
     validation_data=valid_generator,
+    #steps_per_epoch=100, # cambiado
     initial_epoch = EPOCHS1,
     epochs= EPOCHS1+EPOCHS2, #150,
     class_weight=class_weights,
@@ -267,6 +268,7 @@ plot_history_1( list(history.history['accuracy']) + list(history_fine.history['a
 	
 
 
+# ---------------------- TEST MODEL ---------------------- #
 # Evaluacion en conjunto de test
 # ----------------------------------------------------------------------
 #test_loss, test_acc = model.evaluate(test_generator, verbose=1)
@@ -280,13 +282,19 @@ test_generator = test_datagen.flow_from_directory(
 true_classes = test_generator.classes[test_generator.index_array].squeeze()  # esto debe ir antes que predict() 
 predIdxs = model.predict_generator(test_generator,steps=None) #,steps=1 )
 predIdxs = np.argmax(predIdxs, axis=1)
-print(true_classes)
-print(predIdxs)
+#print(true_classes)
+#print(predIdxs)
 
 from sklearn.metrics import classification_report, confusion_matrix
 print('Confusion Matrix')
-print(confusion_matrix(true_classes, predIdxs) ) #, labels=LABELS)
+cm = confusion_matrix(true_classes, predIdxs) #, labels=LABELS)
+print(cm) 
 print('Accuracy {:.2f}%'.format( 100*sum( (predIdxs.squeeze()==true_classes))/ true_classes.shape[0] ) ) 
 
-print(classification_report(true_classes, predIdxs, target_names=LABELS))
+from sklearn.metrics import ConfusionMatrixDisplay
+disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=LABELS)
+disp.plot()
+plt.show()
+plt.savefig('confusion_matrix.png')
 
+print(classification_report(true_classes, predIdxs, target_names=LABELS))

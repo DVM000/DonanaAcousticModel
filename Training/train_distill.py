@@ -12,7 +12,9 @@ import json
 import matplotlib.pyplot as plt
 from tensorflow.keras.callbacks import ReduceLROnPlateau
 from sklearn.utils.class_weight import compute_class_weight
+import tqdm
 
+from augmentdata import data_augmentation
 
 #https://pyimagesearch.com/2021/06/28/data-augmentation-with-tf-data-and-tensorflow/
 
@@ -31,6 +33,9 @@ TEST_IMAGE_DIR = "/tfm-external/birdnet-output_test/imgs/"  # Ruta de la carpeta
 TEST_NPY_DIR = "/tfm-external/birdnet-output_test/npy/"  # Ruta de la carpeta con archivos .npy de soft labels
 
 
+MAX_PER_CLASS = 1000 # maximum data to take of each category
+MIN_PER_CLASS = 50 # minimum data to take of each category
+
 IMG_HEIGHT = 224 #64 # 128 # cuadrado 128x128?
 IMG_WIDTH = 224 # 512
 CHANNELS = 3
@@ -48,35 +53,51 @@ EPOCHS2 = 150
 
 PATIENCE = 15
 
-alpha = 0.5   #  0.5  # Peso de las hard labels en la mezcla (1-alpha = peso de soft labels)
+alpha = 0.9   #  0.5  # Peso de las hard labels en la mezcla (1-alpha = peso de soft labels)
 temperature = 1.0  # Parámetro para suavizar soft labels
 
 
 # ---------------------- DATA LOADING ---------------------- #
-def load_data(image_path, npy_path):
+def load_data(image_path, npy_path, category_list=[]):
     """
     Carga imágenes y soft labels desde carpetas organizadas por categorías.
 
     image_path: Ruta a la carpeta con imágenes organizadas en subdirectorios.
     npy_path: Ruta a la carpeta con archivos .npy organizados en subdirectorios.
+    category_list: Lista deseada de categorias (subdirectorios a buscar). Si no se especifica, se toma de subdirectorios y se aplica MIN_PER_CLASS.
 
     Retorna listas de rutas de imágenes y sus etiquetas suaves.
     """
     image_files = []
     soft_labels = []
     hard_labels = []
-
+    category_list_min = [] # lista de categorias que superan el minimo de datos
+    
     # Recorrer categorías (subcarpetas)
-    category_list = sorted(os.listdir(image_path))
+    if len(category_list)<1:
+        category_list = sorted(os.listdir(image_path)) # subcarpetas si no se especifica lista
+        MIN_ = MIN_PER_CLASS 
+    else:
+        MIN_ = 0  # si se especifica lista, no usamos minimo
+        
+    ii = -1
     for i,category in enumerate(category_list):
+        
         category_img_path = os.path.join(image_path, category)
         category_npy_path = npy_path #os.path.join(npy_path, category)
 
         if not os.path.isdir(category_img_path):
             continue  # Saltar archivos que no sean carpetas
 
+        if len(os.listdir(category_img_path)) < MIN_: 
+            print(f"Skipping category ({i}) {category}: only {len(os.listdir(category_img_path))} files")
+            continue
+        
+        category_list_min.append(category)
+        ii = ii + 1 # solo si la categoria ha sido añadida  
+            
         # Recorrer las imágenes dentro de la categoría
-        for img_file in os.listdir(category_img_path):
+        for img_file in os.listdir(category_img_path)[:MAX_PER_CLASS]:
             img_full_path = os.path.join(category_img_path, img_file)
             npy_full_path = os.path.join(category_npy_path, img_file.replace(".png", ".npy"))
             #print(img_full_path)
@@ -85,24 +106,37 @@ def load_data(image_path, npy_path):
             if os.path.exists(npy_full_path):  # Asegurar que exista la predicción
                 image_files.append(img_full_path)
                 soft_labels.append(np.load(npy_full_path))  # Cargar soft label desde .npy
-                hard_labels.append(i)
+                hard_labels.append(ii)
                 #print(img_full_path, i)
+                     
+        print(f"({i}) {category}: {min(len(os.listdir(category_img_path)[:MAX_PER_CLASS]), len(os.listdir(category_npy_path)[:MAX_PER_CLASS]))} files.")
                 
     image_files = tf.constant(image_files, dtype=tf.string)
     #soft_labels = tf.convert_to_tensor(soft_labels, dtype=tf.float32)
     
     print(f"Found {len(image_files)} images belonging to {len(np.unique(hard_labels))} classes.")
 
-    return image_files, np.array(soft_labels), hard_labels, category_list
+    return image_files, np.array(soft_labels), hard_labels, category_list_min
 
 # ---------------------- DATA PROCESSING ---------------------- #
-def load_and_preprocess_image(image_path, label):
+def load_and_preprocess_image(image_path, label, augment=False):
     """
     Carga una imagen y la preprocesa para el entrenamiento.
+    
+    Parámetros:
+    - image_path: Ruta de la imagen.
+    - label: Etiqueta de la imagen.
+    - augment: Booleano para aplicar o no data augmentation.
     """
-    image_path = image_path.decode("utf-8")  # Convertir a string
+    if isinstance(image_path, tf.Tensor):
+        image_path = image_path.decode("utf-8")  # Convertir a string
     image = load_img(image_path, target_size=(IMG_HEIGHT, IMG_WIDTH))  # Cargar imagen
     image = img_to_array(image) * rescaling  # Convertir a array y normalizar
+    
+    if augment: # solo para training
+        image = data_augmentation(image) #  Add data augmentation
+        
+    image = tf.cast(image, tf.float32)  # Asegurar float32 después de la data augmentation
     
     '''image = tf.io.read_file(image_path)
     image = tf.image.decode_png(image, channels=3)
@@ -114,12 +148,13 @@ def load_and_preprocess_image(image_path, label):
     #label.set_shape([num_classes])  # Establecer la forma explícitamente
     return image, label
 
-def parse_function(image_path, label):
+def parse_function(image_path, label, augment=False):
     """
     Función de preprocesamiento usando `tf.numpy_function`.
     """
+    # Necesitamos envolver las funciones de numpy en un tf.Tensor, para poder usarlas en el pipeline de tf.data.Dataset.
     image, label = tf.numpy_function(func=load_and_preprocess_image, 
-                                     inp=[image_path, label], 
+                                     inp=[image_path, label, augment], 
                                      Tout=(tf.float32, tf.float32))
 
     image.set_shape([IMG_HEIGHT, IMG_WIDTH, 3])  # Definir forma de imagen
@@ -129,11 +164,18 @@ def parse_function(image_path, label):
 
     return image, label
     
+# Crear versiones separadas
+def parse_function_train(image_path, label):
+    return parse_function(image_path, label, augment=True)
 
+def parse_function_eval(image_path, label):
+    return parse_function(image_path, label, augment=False)
+    
 # ---------------------- DATASET ---------------------- #
 # Cargar datos
+print(f"Loading data...")
 train_image_files, train_soft_labels, train_hard_labels, LABELS = load_data(TRAIN_IMAGE_DIR, TRAIN_NPY_DIR)
-val_image_files, val_soft_labels, val_hard_labels, _ = load_data(VAL_IMAGE_DIR, VAL_NPY_DIR)
+val_image_files, val_soft_labels, val_hard_labels, _ = load_data(VAL_IMAGE_DIR, VAL_NPY_DIR, LABELS)
 print(train_image_files[:2])
 
 # Las hard labels ahora mismo no estan codificadas en one-hot. Calculamos distribucion:
@@ -174,14 +216,29 @@ def selectNsoftlabels_and_gethardlabels(idx, soft_labels, hard_labels):
 with open(f'birdnet_idx.json', 'r') as fp:
     idx_dict = json.load(fp)
 #print(idx_dict)
-idx = np.array(list(idx_dict.values()))  - 1
-idx = [2290-1, 2294-1, 2295-1, 2299-1, 2300-1, 2301-1]
+
+#idx = np.array(list(idx_dict.values()))  - 1
+#print('\n ** WARNING: select correct soft labels ** \n\n ')
+#idx = [2290-1, 2294-1, 2295-1, 2299-1, 2300-1, 2301-1]
+
+# Select indices from idx_dict and LABELS:
+idx = []
+for l in LABELS:
+    #print(l, idx_dict[l])
+    idx.append(idx_dict[l]-1)
+print(f"Selected indexes for our categories: {idx}")
 
 #print(np.argmax(train_soft_labels, axis=1))
 
 train_soft_labels, train_hard_labels = selectNsoftlabels_and_gethardlabels(idx, train_soft_labels, train_hard_labels)
-print(train_soft_labels[0,:])
-print(train_hard_labels[0,:])
+print("Soft labels examples:")
+print(train_soft_labels[:2,:])
+print("... that correspond to:")
+print(np.argmax(train_soft_labels[:2,:], axis=1))
+print("Hard labels examples:")
+print(train_hard_labels[:2,:])
+
+#sys.exit(0)
 
 val_soft_labels, val_hard_labels = selectNsoftlabels_and_gethardlabels(idx, val_soft_labels, val_hard_labels)
 
@@ -205,7 +262,7 @@ val_labels = np.concatenate([val_soft_labels, val_hard_labels], axis=1)
 #https://www.tensorflow.org/guide/data?hl=en
 train_dataset = tf.data.Dataset.from_tensor_slices((train_image_files, train_labels)) # 
 train_dataset = train_dataset.shuffle(buffer_size=len(train_image_files)) # necesario poner esto antes que .batch()
-train_dataset = train_dataset.map(parse_function, num_parallel_calls=tf.data.AUTOTUNE)
+train_dataset = train_dataset.map(parse_function_train, num_parallel_calls=tf.data.AUTOTUNE)
 train_dataset = train_dataset.batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
 
 # Verificar dataset
@@ -221,10 +278,14 @@ train_dataset = train_dataset.batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
 #plt.imshow(image[0])
 #plt.savefig("Dataset.png")
 sys.exit(0)'''
+'''
+for batch in train_dataset.take(1):
+    print(batch[0].dtype, batch[1].dtype)
+sys.exit(0)'''
 
 val_dataset = tf.data.Dataset.from_tensor_slices((val_image_files, val_labels)) # 
 val_dataset = val_dataset.shuffle(buffer_size=len(val_image_files))  
-val_dataset = val_dataset.map(parse_function, num_parallel_calls=tf.data.AUTOTUNE)
+val_dataset = val_dataset.map(parse_function_eval, num_parallel_calls=tf.data.AUTOTUNE)
 val_dataset = val_dataset.batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
 
 
@@ -325,6 +386,7 @@ model.compile(optimizer=keras.optimizers.Adam(learning_rate=INITIAL_LR),
 history = model.fit(train_dataset, 
 		  validation_data=val_dataset,
 		  epochs=EPOCHS1,
+		  #steps_per_epoch=200, # cambiado
 		  #class_weight=class_weights,  # desalanceo de clases
                   callbacks=[early_stopping],
 		  verbose=1)
@@ -353,6 +415,7 @@ history_fine = model.fit(train_dataset,
 		  validation_data=val_dataset,
 		  initial_epoch = EPOCHS1,
                   epochs= EPOCHS1+EPOCHS2, 
+                  #steps_per_epoch=200, # cambiado
                   #class_weight=class_weights,
                   callbacks=[early_stopping],#, reduce_lr],
 		  verbose=1)
@@ -393,13 +456,14 @@ plot_history_1( list(history.history['custom_accuracy']) + list(history_fine.his
 	
 
 # ---------------------- TEST MODEL ---------------------- #
+model.save("mobilenet_spectrogram_distill.h5")
 
-test_image_files, _, test_hard_labels, _ = load_data(TEST_IMAGE_DIR, TEST_NPY_DIR)
+test_image_files, _, test_hard_labels, _ = load_data(TEST_IMAGE_DIR, TEST_NPY_DIR, LABELS)
 test_image_files = tf.constant(test_image_files, dtype=tf.string)
 
 test_dataset = tf.data.Dataset.from_tensor_slices((test_image_files, test_hard_labels))
 #test_dataset = test_dataset.shuffle(buffer_size=len(test_image_files)) # necesario poner esto antes que .batch()
-test_dataset = test_dataset.map(parse_function, num_parallel_calls=tf.data.AUTOTUNE)
+test_dataset = test_dataset.map(parse_function_eval, num_parallel_calls=tf.data.AUTOTUNE)
 test_dataset = test_dataset.batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
 
 print(f"Número de imágenes en test: {len(test_image_files)}")
@@ -408,16 +472,23 @@ true_classes = np.array(test_hard_labels) #test_generator.classes[test_generator
 predIdxs = model.predict(test_dataset) #,steps=1 )
 predIdxs = np.argmax(predIdxs, axis=1)
 
-print(true_classes)
-print(predIdxs)
+#print(true_classes)
+#print(predIdxs)
 
 
 from sklearn.metrics import classification_report, confusion_matrix
 print('Confusion Matrix')
-print(confusion_matrix(true_classes, predIdxs) ) #, labels=LABELS)
+cm = confusion_matrix(true_classes, predIdxs) #, labels=LABELS)
+print(cm) 
 print('Accuracy {:.2f}%'.format( 100*sum( (predIdxs.squeeze()==true_classes))/ true_classes.shape[0] ) ) 
 
-print(classification_report(true_classes, predIdxs)) #, target_names=LABELS))
+from sklearn.metrics import ConfusionMatrixDisplay
+disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=LABELS)
+disp.plot()
+plt.show()
+plt.savefig('confusion_matrix_distill.png')
+
+print(classification_report(true_classes, predIdxs, target_names=LABELS))
 
 sys.exit(0)
 # ---- From ImageDataGenerator
