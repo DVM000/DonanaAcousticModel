@@ -23,6 +23,7 @@ from augmentdata import data_augmentation
 #image_path = "/repos/audio-birds/BirdNET-Analyzer/output/imgs/"  # Ruta de la carpeta con imágenes organizadas por categorías
 #npy_path = "/repos/audio-birds/BirdNET-Analyzer/output/npy/"  # Ruta de la carpeta con archivos .npy de soft labels
 
+
 TRAIN_IMAGE_DIR = "/tfm-external/birdnet-output_train/imgs/"  # Ruta de la carpeta con imágenes organizadas por categorías
 TRAIN_NPY_DIR = "/tfm-external/birdnet-output_train//npy/"  # Ruta de la carpeta con archivos .npy de soft labels
 
@@ -31,6 +32,14 @@ VAL_NPY_DIR = "/tfm-external/birdnet-output_val/npy/"  # Ruta de la carpeta con 
 
 TEST_IMAGE_DIR = "/tfm-external/birdnet-output_test/imgs/"  # Ruta de la carpeta con imágenes organizadas por categorías
 TEST_NPY_DIR = "/tfm-external/birdnet-output_test/npy/"  # Ruta de la carpeta con archivos .npy de soft labels
+
+
+TRAIN_IMAGE_DIR = "./tfm-external/less_classes/train/imgs/" #  Falco + Larus. 
+VAL_IMAGE_DIR = "./tfm-external/less_classes/val/imgs/"
+TEST_IMAGE_DIR = "./tfm-external/less_classes/test/imgs/"
+TRAIN_NPY_DIR = "./tfm-external/less_classes/train/npy/"
+VAL_NPY_DIR = "./tfm-external/less_classes/val/npy/"
+TEST_NPY_DIR = "./tfm-external/less_classes/test/npy/"
 
 
 MAX_PER_CLASS = 1000 # maximum data to take of each category
@@ -56,6 +65,20 @@ PATIENCE = 15
 alpha = 0.9   #  0.5  # Peso de las hard labels en la mezcla (1-alpha = peso de soft labels)
 temperature = 1.0  # Parámetro para suavizar soft labels
 
+
+# ---------------------- CHECK GPU AVAILABLE ---------------------- #
+gpus = tf.config.experimental.list_physical_devices('GPU')
+if gpus:
+    try:
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+        logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+        print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+    except RuntimeError as e:
+        print(e)
+else:
+    print("\n WARNING: no GPU found. \n")
+print(gpus)
 
 # ---------------------- DATA LOADING ---------------------- #
 def load_data(image_path, npy_path, category_list=[]):
@@ -177,7 +200,7 @@ print(f"Loading data...")
 train_image_files, train_soft_labels, train_hard_labels, LABELS = load_data(TRAIN_IMAGE_DIR, TRAIN_NPY_DIR)
 val_image_files, val_soft_labels, val_hard_labels, _ = load_data(VAL_IMAGE_DIR, VAL_NPY_DIR, LABELS)
 print(train_image_files[:2])
-
+    
 # Las hard labels ahora mismo no estan codificadas en one-hot. Calculamos distribucion:
 print(f"Target categories {LABELS}")
 NUM_CLASSES = len(LABELS)
@@ -228,6 +251,11 @@ for l in LABELS:
     idx.append(idx_dict[l]-1)
 print(f"Selected indexes for our categories: {idx}")
 
+# Guardar la lista final de especies 
+with open('selected-species-model.txt', 'w') as f:
+    for item in LABELS:
+        f.write(item + "\n")
+    
 #print(np.argmax(train_soft_labels, axis=1))
 
 train_soft_labels, train_hard_labels = selectNsoftlabels_and_gethardlabels(idx, train_soft_labels, train_hard_labels)
@@ -252,18 +280,20 @@ val_soft_labels, val_hard_labels = selectNsoftlabels_and_gethardlabels(idx, val_
 #print(NUM_CLASSES)
 
 train_labels = np.concatenate([train_soft_labels, train_hard_labels], axis=1)
+train_labels = tf.cast(train_labels, tf.float32)
 #val_image_files = tf.constant(val_image_files, dtype=tf.string)
 #val_soft_labels = tf.convert_to_tensor(val_soft_labels, dtype=tf.float32)
 #val_hard_labels = np.eye(NUM_CLASSES)[val_hard_labels] 
 val_labels = np.concatenate([val_soft_labels, val_hard_labels], axis=1)
-
-
+val_labels = tf.cast(val_labels, tf.float32)
+    
 # ---------------------- DATASET ---------------------- #
 #https://www.tensorflow.org/guide/data?hl=en
 train_dataset = tf.data.Dataset.from_tensor_slices((train_image_files, train_labels)) # 
 train_dataset = train_dataset.shuffle(buffer_size=len(train_image_files)) # necesario poner esto antes que .batch()
 train_dataset = train_dataset.map(parse_function_train, num_parallel_calls=tf.data.AUTOTUNE)
 train_dataset = train_dataset.batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
+train_dataset = train_dataset.apply(tf.data.experimental.prefetch_to_device('/GPU:0')) # para que use la GPU, por defecto no la estaba usando
 
 # Verificar dataset
 '''for image, label in train_dataset.take(10):
@@ -287,7 +317,7 @@ val_dataset = tf.data.Dataset.from_tensor_slices((val_image_files, val_labels)) 
 val_dataset = val_dataset.shuffle(buffer_size=len(val_image_files))  
 val_dataset = val_dataset.map(parse_function_eval, num_parallel_calls=tf.data.AUTOTUNE)
 val_dataset = val_dataset.batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
-
+val_dataset = val_dataset.apply(tf.data.experimental.prefetch_to_device('/GPU:0')) 
 
 # ---------------------- DEFINE MODEL ---------------------- #
 base_model = MobileNet(weights="imagenet", include_top=False, input_shape=(IMG_HEIGHT, IMG_WIDTH, 3))
@@ -483,31 +513,65 @@ print(cm)
 print('Accuracy {:.2f}%'.format( 100*sum( (predIdxs.squeeze()==true_classes))/ true_classes.shape[0] ) ) 
 
 from sklearn.metrics import ConfusionMatrixDisplay
-disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=LABELS)
-disp.plot()
+cmP = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=LABELS)
+fig, ax = plt.subplots(figsize=(60,60))
+cmP.plot(ax=ax, colorbar=False)
+cax = fig.add_axes([ax.get_position().x1+0.01,ax.get_position().y0,0.02,ax.get_position().height])
+plt.colorbar(cmP.im_,  cax=cax)
 plt.show()
 plt.savefig('confusion_matrix_distill.png')
 
-print(classification_report(true_classes, predIdxs, target_names=LABELS))
+classificationReport = classification_report(true_classes, predIdxs, target_names=LABELS)
+print(classificationReport)
 
-sys.exit(0)
-# ---- From ImageDataGenerator
-print('ImageDataGenerator')
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
-test_datagen = ImageDataGenerator(rescale=rescaling, preprocessing_function=None)
-test_generator = test_datagen.flow_from_directory(
-    TEST_IMAGE_DIR, target_size=(IMG_HEIGHT, IMG_WIDTH), batch_size=BATCH_SIZE, class_mode='categorical', shuffle=False)
-    
-true_classes = test_generator.classes[test_generator.index_array].squeeze()  # esto debe ir antes que predict() 
-predIdxs = model.predict_generator(test_generator,steps=None) #,steps=1 )
-predIdxs = np.argmax(predIdxs, axis=1)
-print(true_classes)
-print(predIdxs)
+#https://stackoverflow.com/questions/28200786/how-to-plot-scikit-learn-classification-report
+import itertools
+import re
 
-from sklearn.metrics import classification_report, confusion_matrix
-print('Confusion Matrix')
-print(confusion_matrix(true_classes, predIdxs) ) #, labels=LABELS)
-print('Accuracy {:.2f}%'.format( 100*sum( (predIdxs.squeeze()==true_classes))/ true_classes.shape[0] ) ) 
+def plot_classification_report(classificationReport,
+                               title='Classification report',
+                               cmap='RdBu'):
 
-print(classification_report(true_classes, predIdxs, target_names=LABELS))
+    classificationReport = classificationReport.replace('\n\n', '\n')
+    classificationReport = classificationReport.replace(' / ', '/')
+    lines = classificationReport.split('\n')
+
+    classes, plotMat, support, class_names = [], [], [], []
+
+    for line in lines[1:-4]:  # Excluir la última parte con los promedios
+        match = re.match(r"(.+?)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+(\d+)", line)
+        if match:
+            class_name, precision, recall, f1, sup = match.groups()
+            classes.append(class_name.strip())
+            class_names.append(class_name.strip())
+            plotMat.append([float(precision), float(recall), float(f1)])
+            support.append(int(sup))
+
+    plotMat = np.array(plotMat)
+    xticklabels = ['Precision', 'Recall', 'F1-score']
+    yticklabels = ['{0} ({1})'.format(class_names[idx], sup)
+                   for idx, sup in enumerate(support)]
+
+    plt.figure(figsize=(10, 20))
+    plt.imshow(plotMat, interpolation='nearest', cmap=cmap, aspect='auto')
+    plt.title(title)
+    plt.colorbar()
+    plt.xticks(np.arange(3), xticklabels, rotation=45)
+    plt.yticks(np.arange(len(classes)), yticklabels)
+
+    upper_thresh = plotMat.min() + (plotMat.max() - plotMat.min()) / 10 * 8
+    lower_thresh = plotMat.min() + (plotMat.max() - plotMat.min()) / 10 * 2
+    for i, j in itertools.product(range(plotMat.shape[0]), range(plotMat.shape[1])):
+        plt.text(j, i, format(plotMat[i, j], '.2f'),
+                 horizontalalignment="center",
+                 color="white" if (plotMat[i, j] > upper_thresh or plotMat[i, j] < lower_thresh) else "black")
+
+    plt.ylabel('Classes')
+    plt.xlabel('Metrics')
+    plt.tight_layout()
+    plt.show()
+    plt.savefig('classification-report-distill.png')
+ 
+plot_classification_report(classificationReport, cmap='viridis')
+   
 
