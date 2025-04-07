@@ -115,8 +115,9 @@ def time_mask(input_sg, lamb = 0.5, max_length = 0.25): # lamb = lambda for Pois
 # NOISE AND BACKGROUND SIGNAL
 
 # Strenghten/weaken the main signal
-def raise_to_power(input_sg, max_power = 2): # max_power= the maximum power to which the pixels of the spektrogram should be raised 
-    power = np.random.beta(2,2)*max_power
+def raise_to_power(input_sg, max_power = 2): # max_power= the maximum power to which the pixels of the spectrogram should be raised 
+    #power = np.random.beta(2,2)*max_power 
+    power = np.random.normal(1,0.1) # DVM
     output_sg = input_sg**power
     return output_sg
 
@@ -128,7 +129,7 @@ def raise_to_power(input_sg, max_power = 2): # max_power= the maximum power to w
     return output_sg'''
     
 def add_noise(input_sg, noise_level=0.1):
-    noise = np.random.normal(loc=0.0, scale=1.0, size=input_sg.shape)  # Gaussian noise
+    noise = np.random.normal(loc=0.0, scale=1.0, size=input_sg.shape) * np.max(input_sg)  # Gaussian noise. DVM: scaled to 255
     output_sg = input_sg + noise_level * noise
     output_sg = np.clip(output_sg, a_min=0, a_max=None)  # clip values to original range  
     return output_sg
@@ -150,7 +151,7 @@ def data_augmentation(input_sg,
                       p_x_shift = 0.5, # The probability to apply x_shift on a single spectrogram
                       x_shift_rate = 0.1, 
                       p_power = 0.5, # The probability to apply raise_to_power on a single spectrogram
-                      max_power = 2, 
+                      max_power = 1.5, 
                       p_noise = 0.5, # The probability to apply add_noise on a single spectrogram
                       noise_path = '', # path to noise files
                       noise_to_signal_max_ratio = 10, 
@@ -163,7 +164,7 @@ def data_augmentation(input_sg,
                       fr_lambda = 0.5, 
                       fr_mask_h = 0.1, 
                       t_lambda = 0.5, 
-                      t_mask_l = 0.2):
+                      t_mask_l = 0.1):
     mixup_file = "None" # Return infromation of possible mixup with another species
     input_sg = input_sg.copy()
     

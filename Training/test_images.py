@@ -7,7 +7,10 @@ import sys
 import json
 import matplotlib.pyplot as plt
 import tqdm
- #from train_distill import distillation_loss
+import random 
+
+from  util import bcolors, check_GPU, plot_confusion_matrix, plot_classification_report
+
 
 # ---------------------- PARAMETERS ---------------------- #
 MODEL_PATH = "mobilenet_spectrogram_distill.h5"
@@ -18,15 +21,15 @@ TEST_NPY_DIR = "./tfm-external/less_classes/test/npy/"  # Ruta de la carpeta con
 MAX_PER_CLASS = 1000 # maximum data to take of each category
 MIN_PER_CLASS = 50 # minimum data to take of each category
 
-IMG_HEIGHT = 224 #64 # 128 # cuadrado 128x128?
-IMG_WIDTH = 224 # 512
+IMG_HEIGHT = 224 
+IMG_WIDTH = 224 
 CHANNELS = 3
 
 BATCH_SIZE = 32
 
 rescaling = 1.0 / 255.0  # Normalización
 
-TH_CONF = 0.5  # Umbral de confianza mínima
+#TH_CONF = 0.5  # Umbral de confianza mínima
 
 
 # ---------------------- LOAD TRAINED MODEL ---------------------- #
@@ -83,18 +86,16 @@ model.summary()
 print(model.input)
 
 # ---------------------- DATA LOADING ---------------------- #
-def load_data(image_path, npy_path, category_list=[]):
+def load_data_nonpy(image_path, category_list=[]):
     """
     Carga imágenes y soft labels desde carpetas organizadas por categorías.
 
     image_path: Ruta a la carpeta con imágenes organizadas en subdirectorios.
-    npy_path: Ruta a la carpeta con archivos .npy organizados en subdirectorios.
     category_list: Lista deseada de categorias (subdirectorios a buscar). Si no se especifica, se toma de subdirectorios y se aplica MIN_PER_CLASS.
 
-    Retorna listas de rutas de imágenes y sus etiquetas suaves.
+    Retorna listas de rutas de imágenes y sus etiquetas.
     """
     image_files = []
-    soft_labels = []
     hard_labels = []
     category_list_min = [] # lista de categorias que superan el minimo de datos
     
@@ -109,39 +110,36 @@ def load_data(image_path, npy_path, category_list=[]):
     for i,category in enumerate(category_list):
         
         category_img_path = os.path.join(image_path, category)
-        category_npy_path = npy_path #os.path.join(npy_path, category)
 
         if not os.path.isdir(category_img_path):
             continue  # Saltar archivos que no sean carpetas
 
-        if len(os.listdir(category_img_path)) < MIN_: 
+        image_list = os.listdir(category_img_path)
+
+        if len(image_list) < MIN_: 
             print(f"Skipping category ({i}) {category}: only {len(os.listdir(category_img_path))} files")
             continue
         
         category_list_min.append(category)
         ii = ii + 1 # solo si la categoria ha sido añadida  
+        
+        # Seleccionar hasta MAX_PER_CLASS imágenes de manera aleatoria
+        selected_images = random.sample(image_list, min(MAX_PER_CLASS, len(image_list)))
             
         # Recorrer las imágenes dentro de la categoría
         for img_file in os.listdir(category_img_path)[:MAX_PER_CLASS]:
             img_full_path = os.path.join(category_img_path, img_file)
-            npy_full_path = os.path.join(category_npy_path, img_file.replace(".png", ".npy"))
-            #print(img_full_path)
-            #print(npy_full_path)
-            
-            if os.path.exists(npy_full_path):  # Asegurar que exista la predicción
-                image_files.append(img_full_path)
-                soft_labels.append(np.load(npy_full_path))  # Cargar soft label desde .npy
-                hard_labels.append(ii)
-                #print(img_full_path, i)
-                     
-        print(f"({i}) {category}: {min(len(os.listdir(category_img_path)[:MAX_PER_CLASS]), len(os.listdir(category_npy_path)[:MAX_PER_CLASS]))} files.")
+            image_files.append(img_full_path)
+            hard_labels.append(ii)
                 
+        print(f"({i}) {category}: {len(os.listdir(category_img_path)[:MAX_PER_CLASS])} files.")
+        
     image_files = tf.constant(image_files, dtype=tf.string)
     #soft_labels = tf.convert_to_tensor(soft_labels, dtype=tf.float32)
-    
-    print(f"Found {len(image_files)} images belonging to {len(np.unique(hard_labels))} classes.")
+               
+    print(bcolors.OKCYAN+ f"Found {len(image_files)} images belonging to {len(np.unique(hard_labels))} classes." +bcolors.ENDC)
 
-    return image_files, np.array(soft_labels), hard_labels, category_list_min
+    return image_files, hard_labels, category_list_min
 
 # ---------------------- DATA PROCESSING ---------------------- #
 def load_and_preprocess_image(image_path, label, augment=False):
@@ -198,20 +196,20 @@ def parse_function_eval(image_path, label):
     
 
 # ---------------------- SELECT LABELS ---------------------- # 
-with open(f'birdnet_idx.json', 'r') as fp:
-    idx_dict = json.load(fp)
+'''with open(f'birdnet_idx.json', 'r') as fp:
+    idx_dict = json.load(fp)'''
 
 
 with open("selected-species-model.txt", "r") as f:
    LABELS = [line.strip() for line in f]
 print(LABELS)
 
-# Select indices from idx_dict and LABELS:
+'''# Select indices from idx_dict and LABELS:
 idx = []
 for l in LABELS:
     #print(l, idx_dict[l])
     idx.append(idx_dict[l]-1)
-print(f"Selected indexes for our categories: {idx}")
+print(f"Selected indexes for our categories: {idx}")'''
 
 print(f"Target categories {LABELS}")
 NUM_CLASSES = len(LABELS)
@@ -220,7 +218,7 @@ NUM_CLASSES = len(LABELS)
 # ---------------------- TEST MODEL ---------------------- #
 print(f"Loading data...")
 
-test_image_files, _, test_hard_labels, _ = load_data(TEST_IMAGE_DIR, TEST_NPY_DIR, LABELS)
+test_image_files, test_hard_labels, _ = load_data_nonpy(TEST_IMAGE_DIR, LABELS)
 test_image_files = tf.constant(test_image_files, dtype=tf.string)
 
 test_dataset = tf.data.Dataset.from_tensor_slices((test_image_files, test_hard_labels))
@@ -237,74 +235,12 @@ predIdxs = np.argmax(predIdxs, axis=1)
 #print(true_classes)
 #print(predIdxs)
 
+plot_confusion_matrix(true_classes, predIdxs, LABELS, FIGNAME='confusion_matrix-distill.png')
 
-from sklearn.metrics import classification_report, confusion_matrix
-print('Confusion Matrix')
-cm = confusion_matrix(true_classes, predIdxs) #, labels=LABELS)
-print(cm) 
-print('Accuracy {:.2f}%'.format( 100*sum( (predIdxs.squeeze()==true_classes))/ true_classes.shape[0] ) ) 
-
-from sklearn.metrics import ConfusionMatrixDisplay
-cmP = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=LABELS)
-fig, ax = plt.subplots(figsize=(60,60))
-cmP.plot(ax=ax, colorbar=False)
-cax = fig.add_axes([ax.get_position().x1+0.01,ax.get_position().y0,0.02,ax.get_position().height])
-plt.colorbar(cmP.im_,  cax=cax)
-plt.show()
-plt.savefig('confusion_matrix_distill.png')
-
+from sklearn.metrics import classification_report
 classificationReport = classification_report(true_classes, predIdxs, target_names=LABELS)
 print(classificationReport)
-
-#https://stackoverflow.com/questions/28200786/how-to-plot-scikit-learn-classification-report
-import itertools
-import re
-
-def plot_classification_report(classificationReport,
-                               title='Classification report',
-                               cmap='RdBu'):
-
-    classificationReport = classificationReport.replace('\n\n', '\n')
-    classificationReport = classificationReport.replace(' / ', '/')
-    lines = classificationReport.split('\n')
-
-    classes, plotMat, support, class_names = [], [], [], []
-
-    for line in lines[1:-4]:  # Excluir la última parte con los promedios
-        match = re.match(r"(.+?)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+(\d+)", line)
-        if match:
-            class_name, precision, recall, f1, sup = match.groups()
-            classes.append(class_name.strip())
-            class_names.append(class_name.strip())
-            plotMat.append([float(precision), float(recall), float(f1)])
-            support.append(int(sup))
-
-    plotMat = np.array(plotMat)
-    xticklabels = ['Precision', 'Recall', 'F1-score']
-    yticklabels = ['{0} ({1})'.format(class_names[idx], sup)
-                   for idx, sup in enumerate(support)]
-
-    plt.figure(figsize=(10, 20))
-    plt.imshow(plotMat, interpolation='nearest', cmap=cmap, aspect='auto')
-    plt.title(title)
-    plt.colorbar()
-    plt.xticks(np.arange(3), xticklabels, rotation=45)
-    plt.yticks(np.arange(len(classes)), yticklabels)
-
-    upper_thresh = plotMat.min() + (plotMat.max() - plotMat.min()) / 10 * 8
-    lower_thresh = plotMat.min() + (plotMat.max() - plotMat.min()) / 10 * 2
-    for i, j in itertools.product(range(plotMat.shape[0]), range(plotMat.shape[1])):
-        plt.text(j, i, format(plotMat[i, j], '.2f'),
-                 horizontalalignment="center",
-                 color="white" if (plotMat[i, j] > upper_thresh or plotMat[i, j] < lower_thresh) else "black")
-
-    plt.ylabel('Classes')
-    plt.xlabel('Metrics')
-    plt.tight_layout()
-    plt.show()
-    plt.savefig('classification-report-distill.png')
- 
-plot_classification_report(classificationReport, cmap='viridis')
+plot_classification_report(classificationReport, cmap='viridis', FIGNAME='classification-report-distill.png')
    
 '''
 # ---- From ImageDataGenerator

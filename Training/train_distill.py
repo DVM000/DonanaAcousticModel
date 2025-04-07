@@ -13,40 +13,29 @@ import matplotlib.pyplot as plt
 from tensorflow.keras.callbacks import ReduceLROnPlateau
 from sklearn.utils.class_weight import compute_class_weight
 import tqdm
+import random
 
 from augmentdata import data_augmentation
+
+from  util import bcolors, check_GPU, plot_confusion_matrix, plot_classification_report, plot_history_1
 
 #https://pyimagesearch.com/2021/06/28/data-augmentation-with-tf-data-and-tensorflow/
 
 
 # ---------------------- PARAMETERS ---------------------- #
-#image_path = "/repos/audio-birds/BirdNET-Analyzer/output/imgs/"  # Ruta de la carpeta con imágenes organizadas por categorías
-#npy_path = "/repos/audio-birds/BirdNET-Analyzer/output/npy/"  # Ruta de la carpeta con archivos .npy de soft labels
 
-
-TRAIN_IMAGE_DIR = "/tfm-external/birdnet-output_train/imgs/"  # Ruta de la carpeta con imágenes organizadas por categorías
-TRAIN_NPY_DIR = "/tfm-external/birdnet-output_train//npy/"  # Ruta de la carpeta con archivos .npy de soft labels
-
-VAL_IMAGE_DIR = "/tfm-external/birdnet-output_val/imgs/"  # Ruta de la carpeta con imágenes organizadas por categorías
-VAL_NPY_DIR = "/tfm-external/birdnet-output_val/npy/"  # Ruta de la carpeta con archivos .npy de soft labels
-
-TEST_IMAGE_DIR = "/tfm-external/birdnet-output_test/imgs/"  # Ruta de la carpeta con imágenes organizadas por categorías
-TEST_NPY_DIR = "/tfm-external/birdnet-output_test/npy/"  # Ruta de la carpeta con archivos .npy de soft labels
-
-
-TRAIN_IMAGE_DIR = "./tfm-external/less_classes/train/imgs/" #  Falco + Larus. 
+TRAIN_IMAGE_DIR = "./tfm-external/less_classes/train/imgs/" 
 VAL_IMAGE_DIR = "./tfm-external/less_classes/val/imgs/"
 TEST_IMAGE_DIR = "./tfm-external/less_classes/test/imgs/"
 TRAIN_NPY_DIR = "./tfm-external/less_classes/train/npy/"
 VAL_NPY_DIR = "./tfm-external/less_classes/val/npy/"
 TEST_NPY_DIR = "./tfm-external/less_classes/test/npy/"
 
-
 MAX_PER_CLASS = 1000 # maximum data to take of each category
 MIN_PER_CLASS = 50 # minimum data to take of each category
 
-IMG_HEIGHT = 224 #64 # 128 # cuadrado 128x128?
-IMG_WIDTH = 224 # 512
+IMG_HEIGHT = 224 
+IMG_WIDTH = 224 
 CHANNELS = 3
 #NUM_CLASSES = 5 # obtained from Dataset
 BATCH_SIZE = 32
@@ -54,42 +43,34 @@ BATCH_SIZE = 32
 rescaling = 1.0 / 255.0  # Normalización
 
 INITIAL_LR = 5e-4 # 1st training
-EPOCHS1 = 15
+EPOCHS1 = 5 #15 #5
 
-UNFREEZE = 50 # number of layers to unfreeze
+UNFREEZE = -1 # number of layers to unfreeze
 FT_LR = 1e-4  # fine-tune
-EPOCHS2 = 150
+EPOCHS2 = 30 #150 #30
 
-PATIENCE = 15
+PATIENCE = 10 #15
 
-alpha = 0.9   #  0.5  # Peso de las hard labels en la mezcla (1-alpha = peso de soft labels)
+alpha = 1   #  0.5  # Peso de las hard labels en la mezcla (1-alpha = peso de soft labels)
 temperature = 1.0  # Parámetro para suavizar soft labels
+
+# Si alpha=1, no aplicamos distillation, no necesitamos las soft labels ni la funcion KL divergence y el entrenamiento es mas rapido
 
 
 # ---------------------- CHECK GPU AVAILABLE ---------------------- #
-gpus = tf.config.experimental.list_physical_devices('GPU')
-if gpus:
-    try:
-        for gpu in gpus:
-            tf.config.experimental.set_memory_growth(gpu, True)
-        logical_gpus = tf.config.experimental.list_logical_devices('GPU')
-        print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
-    except RuntimeError as e:
-        print(e)
-else:
-    print("\n WARNING: no GPU found. \n")
-print(gpus)
+check_GPU()
 
 # ---------------------- DATA LOADING ---------------------- #
-def load_data(image_path, npy_path, category_list=[]):
+def load_data(image_path, npy_path, category_list=[], allow_missing_npy=True):
     """
     Carga imágenes y soft labels desde carpetas organizadas por categorías.
 
     image_path: Ruta a la carpeta con imágenes organizadas en subdirectorios.
     npy_path: Ruta a la carpeta con archivos .npy organizados en subdirectorios.
     category_list: Lista deseada de categorias (subdirectorios a buscar). Si no se especifica, se toma de subdirectorios y se aplica MIN_PER_CLASS.
+    allow_missing_npy: Si es True, permite cargar imágenes aunque no exista su correspondiente archivo .npy.
 
-    Retorna listas de rutas de imágenes y sus etiquetas suaves.
+    Retorna listas de rutas de imágenes y sus etiquetas.
     """
     image_files = []
     soft_labels = []
@@ -112,15 +93,20 @@ def load_data(image_path, npy_path, category_list=[]):
         if not os.path.isdir(category_img_path):
             continue  # Saltar archivos que no sean carpetas
 
-        if len(os.listdir(category_img_path)) < MIN_: 
+        image_list = os.listdir(category_img_path)
+        
+        if len(image_list) < MIN_: 
             print(f"Skipping category ({i}) {category}: only {len(os.listdir(category_img_path))} files")
             continue
         
-        category_list_min.append(category)
+        category_list_min.append(category) # Agregar categoría a la lista si ha sido añadida
         ii = ii + 1 # solo si la categoria ha sido añadida  
+        
+        # Seleccionar hasta MAX_PER_CLASS imágenes de manera aleatoria
+        selected_images = random.sample(image_list, min(MAX_PER_CLASS, len(image_list)))
             
         # Recorrer las imágenes dentro de la categoría
-        for img_file in os.listdir(category_img_path)[:MAX_PER_CLASS]:
+        for img_file in selected_images: # os.listdir(category_img_path)[:MAX_PER_CLASS]:
             img_full_path = os.path.join(category_img_path, img_file)
             npy_full_path = os.path.join(category_npy_path, img_file.replace(".png", ".npy"))
             #print(img_full_path)
@@ -131,16 +117,76 @@ def load_data(image_path, npy_path, category_list=[]):
                 soft_labels.append(np.load(npy_full_path))  # Cargar soft label desde .npy
                 hard_labels.append(ii)
                 #print(img_full_path, i)
+            elif allow_missing_npy:
+                image_files.append(img_full_path)
+                soft_labels.append(1e-3*np.ones(6522))  # Agregar array constante de valores pequeños si falta el npy
+                hard_labels.append(ii)
                      
         print(f"({i}) {category}: {min(len(os.listdir(category_img_path)[:MAX_PER_CLASS]), len(os.listdir(category_npy_path)[:MAX_PER_CLASS]))} files.")
                 
     image_files = tf.constant(image_files, dtype=tf.string)
     #soft_labels = tf.convert_to_tensor(soft_labels, dtype=tf.float32)
     
-    print(f"Found {len(image_files)} images belonging to {len(np.unique(hard_labels))} classes.")
+    print(bcolors.OKCYAN+ f"Found {len(image_files)} images belonging to {len(np.unique(hard_labels))} classes." +bcolors.ENDC)
 
     return image_files, np.array(soft_labels), hard_labels, category_list_min
 
+
+def load_data_nonpy(image_path, category_list=[]):
+    """
+    Carga imágenes y soft labels desde carpetas organizadas por categorías.
+
+    image_path: Ruta a la carpeta con imágenes organizadas en subdirectorios.
+    category_list: Lista deseada de categorias (subdirectorios a buscar). Si no se especifica, se toma de subdirectorios y se aplica MIN_PER_CLASS.
+
+    Retorna listas de rutas de imágenes y sus etiquetas.
+    """
+    image_files = []
+    hard_labels = []
+    category_list_min = [] # lista de categorias que superan el minimo de datos
+    
+    # Recorrer categorías (subcarpetas)
+    if len(category_list)<1:
+        category_list = sorted(os.listdir(image_path)) # subcarpetas si no se especifica lista
+        MIN_ = MIN_PER_CLASS 
+    else:
+        MIN_ = 0  # si se especifica lista, no usamos minimo
+        
+    ii = -1
+    for i,category in enumerate(category_list):
+        
+        category_img_path = os.path.join(image_path, category)
+
+        if not os.path.isdir(category_img_path):
+            continue  # Saltar archivos que no sean carpetas
+
+        image_list = os.listdir(category_img_path)
+
+        if len(image_list) < MIN_: 
+            print(f"Skipping category ({i}) {category}: only {len(os.listdir(category_img_path))} files")
+            continue
+        
+        category_list_min.append(category)
+        ii = ii + 1 # solo si la categoria ha sido añadida  
+        
+        # Seleccionar hasta MAX_PER_CLASS imágenes de manera aleatoria
+        selected_images = random.sample(image_list, min(MAX_PER_CLASS, len(image_list)))
+            
+        # Recorrer las imágenes dentro de la categoría
+        for img_file in os.listdir(category_img_path)[:MAX_PER_CLASS]:
+            img_full_path = os.path.join(category_img_path, img_file)
+            image_files.append(img_full_path)
+            hard_labels.append(ii)
+                
+        print(f"({i}) {category}: {len(os.listdir(category_img_path)[:MAX_PER_CLASS])} files.")
+        
+    image_files = tf.constant(image_files, dtype=tf.string)
+    #soft_labels = tf.convert_to_tensor(soft_labels, dtype=tf.float32)
+               
+    print(bcolors.OKCYAN+ f"Found {len(image_files)} images belonging to {len(np.unique(hard_labels))} classes." +bcolors.ENDC)
+
+    return image_files, hard_labels, category_list_min
+    
 # ---------------------- DATA PROCESSING ---------------------- #
 def load_and_preprocess_image(image_path, label, augment=False):
     """
@@ -197,10 +243,15 @@ def parse_function_eval(image_path, label):
 # ---------------------- DATASET ---------------------- #
 # Cargar datos
 print(f"Loading data...")
-train_image_files, train_soft_labels, train_hard_labels, LABELS = load_data(TRAIN_IMAGE_DIR, TRAIN_NPY_DIR)
-val_image_files, val_soft_labels, val_hard_labels, _ = load_data(VAL_IMAGE_DIR, VAL_NPY_DIR, LABELS)
-print(train_image_files[:2])
-    
+
+if alpha<1:
+    train_image_files, train_soft_labels, train_hard_labels, LABELS = load_data(TRAIN_IMAGE_DIR, TRAIN_NPY_DIR)
+    val_image_files, val_soft_labels, val_hard_labels, _ = load_data(VAL_IMAGE_DIR, VAL_NPY_DIR, LABELS)
+    print(train_image_files[:2])
+else:
+    train_image_files, train_hard_labels, LABELS = load_data_nonpy(TRAIN_IMAGE_DIR)
+    val_image_files, val_hard_labels, _ = load_data_nonpy(TRAIN_IMAGE_DIR, LABELS)
+           
 # Las hard labels ahora mismo no estan codificadas en one-hot. Calculamos distribucion:
 print(f"Target categories {LABELS}")
 NUM_CLASSES = len(LABELS)
@@ -222,6 +273,7 @@ plt.ylabel("Cantidad de imágenes")
 plt.title("Distribución de clases en el conjunto de entrenamiento")
 plt.show()
 plt.savefig('DistribucionClases-distill.png')
+print(bcolors.OKCYAN+'Saved as ' + 'DistribucionClases-distill.png' +bcolors.ENDC)
 #sys.exit(0)
 
 
@@ -248,7 +300,12 @@ with open(f'birdnet_idx.json', 'r') as fp:
 idx = []
 for l in LABELS:
     #print(l, idx_dict[l])
-    idx.append(idx_dict[l]-1)
+    try:
+        idx.append(idx_dict[l]-1)
+    except:
+        idx.append(3927) # Noise
+        print(f"WARNING: species {l} not found in dictionary")
+        
 print(f"Selected indexes for our categories: {idx}")
 
 # Guardar la lista final de especies 
@@ -258,33 +315,36 @@ with open('selected-species-model.txt', 'w') as f:
     
 #print(np.argmax(train_soft_labels, axis=1))
 
-train_soft_labels, train_hard_labels = selectNsoftlabels_and_gethardlabels(idx, train_soft_labels, train_hard_labels)
-print("Soft labels examples:")
-print(train_soft_labels[:2,:])
-print("... that correspond to:")
-print(np.argmax(train_soft_labels[:2,:], axis=1))
-print("Hard labels examples:")
-print(train_hard_labels[:2,:])
-
-#sys.exit(0)
-
-val_soft_labels, val_hard_labels = selectNsoftlabels_and_gethardlabels(idx, val_soft_labels, val_hard_labels)
-
+if alpha<1:
+    train_soft_labels, train_hard_labels = selectNsoftlabels_and_gethardlabels(idx, train_soft_labels, train_hard_labels)
+    print("Soft labels examples:")
+    print(train_soft_labels[:2,:])
+    print("... that correspond to:")
+    print(np.argmax(train_soft_labels[:2,:], axis=1))
+    print("Hard labels examples:")
+    print(train_hard_labels[:2,:])
+    #sys.exit(0)
+    val_soft_labels, val_hard_labels = selectNsoftlabels_and_gethardlabels(idx, val_soft_labels, val_hard_labels)
+else:
+    train_hard_labels = np.eye(NUM_CLASSES)[train_hard_labels]  #  etiquetas one-hot
+    val_hard_labels = np.eye(NUM_CLASSES)[val_hard_labels]  #  etiquetas one-hot
+    
 # Convertir a tensores de TensorFlow
 #train_image_files = tf.constant(train_image_files, dtype=tf.string)
 #train_soft_labels = tf.convert_to_tensor(train_soft_labels, dtype=tf.float32)
-
 
 #num_classes = soft_labels.shape[1]  # Se asume que las soft labels tienen el mismo número de clases
 #train_hard_labels = np.eye(NUM_CLASSES)[train_hard_labels]  #  etiquetas one-hot
 #print(NUM_CLASSES)
 
-train_labels = np.concatenate([train_soft_labels, train_hard_labels], axis=1)
+if alpha<1:   train_labels = np.concatenate([train_soft_labels, train_hard_labels], axis=1) 
+else:        train_labels = train_hard_labels 
 train_labels = tf.cast(train_labels, tf.float32)
 #val_image_files = tf.constant(val_image_files, dtype=tf.string)
 #val_soft_labels = tf.convert_to_tensor(val_soft_labels, dtype=tf.float32)
 #val_hard_labels = np.eye(NUM_CLASSES)[val_hard_labels] 
-val_labels = np.concatenate([val_soft_labels, val_hard_labels], axis=1)
+if alpha<1:   val_labels = np.concatenate([val_soft_labels, val_hard_labels], axis=1) 
+else:        val_labels = val_hard_labels 
 val_labels = tf.cast(val_labels, tf.float32)
     
 # ---------------------- DATASET ---------------------- #
@@ -327,14 +387,20 @@ model = keras.Sequential([
     base_model,
     layers.GlobalAveragePooling2D(),
     layers.BatchNormalization(),
-    layers.Dense(128, activation='relu'),
+    layers.Dense(128, activation='relu', name="dense_output_1"),
     layers.Dropout(0.4),  
-    layers.Dense(NUM_CLASSES, activation='softmax')
+    layers.Dense(NUM_CLASSES, activation='softmax', name="dense_output_2")
 ])
 
 
 print(model.input)
-#sys.exit(0)
+'''try:
+    for i, layer in enumerate(model.layers[0].layers):
+        print(i, layer.name)
+except:
+    for i, layer in enumerate(model.layers):
+        print(i, layer.name)
+sys.exit(0)'''
 
 # ---------------------- DEFINIR PÉRDIDA DE DISTILLATION ---------------------- #
 # ---------------------- MEZCLA DE HARD Y SOFT LABELS ---------------------- #
@@ -398,6 +464,8 @@ print(distillation_loss(train_labels[:10,:], train_labels[:10, -NUM_CLASSES:]))
 sys.exit(0)  '''  
   
 # ---------------------- TRAIN MODEL ---------------------- #
+METRICS = [custom_accuracy] if alpha<1 else ['categorical_accuracy']
+LOSS    = distillation_loss  if alpha<1 else 'categorical_crossentropy'
 
 # (1) Entrenar solo el 'head'
 # ----------------------------------------------------------------------
@@ -409,9 +477,11 @@ early_stopping = keras.callbacks.EarlyStopping(
 )
 
 model.compile(optimizer=keras.optimizers.Adam(learning_rate=INITIAL_LR),
-              loss=distillation_loss,
-              #metrics=['categorical_accuracy'],) # cambiado
-              metrics=[custom_accuracy]) #categorical_accuracy
+              #loss=distillation_loss,
+              ##metrics=['categorical_accuracy'],) # cambiado
+              #metrics=[custom_accuracy]) #categorical_accuracy
+              loss=LOSS, 
+              metrics=METRICS)
   
 history = model.fit(train_dataset, 
 		  validation_data=val_dataset,
@@ -438,8 +508,10 @@ lr_schedule = keras.optimizers.schedules.ExponentialDecay(
 )
 
 model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr_schedule),#FT_LR),
-              loss=distillation_loss,
-              metrics=[custom_accuracy]) #sparse_categorical_accuracy
+              #loss=distillation_loss,
+              #metrics=[custom_accuracy]) #sparse_categorical_accuracy
+              loss=LOSS, 
+              metrics=METRICS)
     
 history_fine = model.fit(train_dataset, 
 		  validation_data=val_dataset,
@@ -450,53 +522,31 @@ history_fine = model.fit(train_dataset,
                   callbacks=[early_stopping],#, reduce_lr],
 		  verbose=1)
 
-
-def plot_history_1(acc,val_acc,loss,val_loss, namefig='fig1_distill.png'):
-  plt.figure(figsize=(12, 12))
-  plt.subplot(2, 1, 1)
-  N = len(acc) # total number of epochs
-  plt.plot(np.arange(1,N+1), acc, '-o', label= "Training Accuracy")
-  plt.plot(np.arange(1,N+1), val_acc, '-o', label= "Validation Accuracy")
-  plt.legend(loc='lower right')
-  plt.ylabel('Accuracy')
-  #plt.ylim([min(plt.ylim()),1])
-  plt.title('Training and Validation Accuracy')
-
-  plt.text(1, acc[-1], "Training Accuracy: {:.2f}".format(acc[-1]))
-  plt.text(1, val_acc[-1], "Val Accuracy: {:.2f}".format(val_acc[-1]))
-
-  plt.subplot(2, 1, 2)
-  plt.plot(np.arange(1,N+1), loss, '-s', label= "Training Loss")
-  plt.plot(np.arange(1,N+1), val_loss, '-s', label= "Validation Loss")
-  plt.legend(loc='upper right')
-  plt.ylabel('Cross Entropy')
-  #plt.ylim([0,1.0])
-  plt.title('Training and Validation Loss')
-  plt.xlabel('epoch')
-  plt.text(1, loss[-1], "Training Loss: {:.2f}".format(loss[-1]))
-  plt.text(1, val_loss[-1], "Val Loss: {:.2f}".format(val_loss[-1]))
-
-  plt.show()
-  plt.savefig(namefig, bbox_inches='tight'); print( 'Saved as ' + namefig )
-
-plot_history_1( list(history.history['custom_accuracy']) + list(history_fine.history['custom_accuracy']), 
+if alpha<1:
+    plot_history_1( list(history.history['custom_accuracy']) + list(history_fine.history['custom_accuracy']), 
 	list(history.history['val_custom_accuracy']) + (history_fine.history['val_custom_accuracy']),
 	list(history.history['loss']) + list(history_fine.history['loss']),
-	list(history.history['val_loss']) + list(history_fine.history['val_loss']) )
-	
+	list(history.history['val_loss']) + list(history_fine.history['val_loss']), namefig='fig1-distill.png' )
+if alpha==1:
+    plot_history_1( list(history.history['categorical_accuracy']) + list(history_fine.history['categorical_accuracy']), 
+	list(history.history['val_categorical_accuracy']) + (history_fine.history['val_categorical_accuracy']),
+	list(history.history['loss']) + list(history_fine.history['loss']),
+	list(history.history['val_loss']) + list(history_fine.history['val_loss']), namefig='fig1-distill.png' )
 
 # ---------------------- TEST MODEL ---------------------- #
 model.save("mobilenet_spectrogram_distill.h5")
 
-test_image_files, _, test_hard_labels, _ = load_data(TEST_IMAGE_DIR, TEST_NPY_DIR, LABELS)
+#test_image_files, _, test_hard_labels, _ = load_data(TEST_IMAGE_DIR, TEST_NPY_DIR, LABELS)
+test_image_files, test_hard_labels, _ = load_data_nonpy(TEST_IMAGE_DIR, LABELS)
 test_image_files = tf.constant(test_image_files, dtype=tf.string)
+
 
 test_dataset = tf.data.Dataset.from_tensor_slices((test_image_files, test_hard_labels))
 #test_dataset = test_dataset.shuffle(buffer_size=len(test_image_files)) # necesario poner esto antes que .batch()
 test_dataset = test_dataset.map(parse_function_eval, num_parallel_calls=tf.data.AUTOTUNE)
 test_dataset = test_dataset.batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
 
-print(f"Número de imágenes en test: {len(test_image_files)}")
+print(bcolors.OKCYAN+f"Número de imágenes en test: {len(test_image_files)}"+bcolors.ENDC)
   
 true_classes = np.array(test_hard_labels) #test_generator.classes[test_generator.index_array].squeeze()  # esto debe ir antes que predict() 
 predIdxs = model.predict(test_dataset) #,steps=1 )
@@ -505,73 +555,12 @@ predIdxs = np.argmax(predIdxs, axis=1)
 #print(true_classes)
 #print(predIdxs)
 
+plot_confusion_matrix(true_classes, predIdxs, LABELS, FIGNAME='confusion_matrix-distill.png')
 
-from sklearn.metrics import classification_report, confusion_matrix
-print('Confusion Matrix')
-cm = confusion_matrix(true_classes, predIdxs) #, labels=LABELS)
-print(cm) 
-print('Accuracy {:.2f}%'.format( 100*sum( (predIdxs.squeeze()==true_classes))/ true_classes.shape[0] ) ) 
-
-from sklearn.metrics import ConfusionMatrixDisplay
-cmP = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=LABELS)
-fig, ax = plt.subplots(figsize=(60,60))
-cmP.plot(ax=ax, colorbar=False)
-cax = fig.add_axes([ax.get_position().x1+0.01,ax.get_position().y0,0.02,ax.get_position().height])
-plt.colorbar(cmP.im_,  cax=cax)
-plt.show()
-plt.savefig('confusion_matrix_distill.png')
-
+from sklearn.metrics import classification_report
 classificationReport = classification_report(true_classes, predIdxs, target_names=LABELS)
 print(classificationReport)
+plot_classification_report(classificationReport, cmap='viridis', FIGNAME='classification-report-distill.png')
 
-#https://stackoverflow.com/questions/28200786/how-to-plot-scikit-learn-classification-report
-import itertools
-import re
-
-def plot_classification_report(classificationReport,
-                               title='Classification report',
-                               cmap='RdBu'):
-
-    classificationReport = classificationReport.replace('\n\n', '\n')
-    classificationReport = classificationReport.replace(' / ', '/')
-    lines = classificationReport.split('\n')
-
-    classes, plotMat, support, class_names = [], [], [], []
-
-    for line in lines[1:-4]:  # Excluir la última parte con los promedios
-        match = re.match(r"(.+?)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+(\d+)", line)
-        if match:
-            class_name, precision, recall, f1, sup = match.groups()
-            classes.append(class_name.strip())
-            class_names.append(class_name.strip())
-            plotMat.append([float(precision), float(recall), float(f1)])
-            support.append(int(sup))
-
-    plotMat = np.array(plotMat)
-    xticklabels = ['Precision', 'Recall', 'F1-score']
-    yticklabels = ['{0} ({1})'.format(class_names[idx], sup)
-                   for idx, sup in enumerate(support)]
-
-    plt.figure(figsize=(10, 20))
-    plt.imshow(plotMat, interpolation='nearest', cmap=cmap, aspect='auto')
-    plt.title(title)
-    plt.colorbar()
-    plt.xticks(np.arange(3), xticklabels, rotation=45)
-    plt.yticks(np.arange(len(classes)), yticklabels)
-
-    upper_thresh = plotMat.min() + (plotMat.max() - plotMat.min()) / 10 * 8
-    lower_thresh = plotMat.min() + (plotMat.max() - plotMat.min()) / 10 * 2
-    for i, j in itertools.product(range(plotMat.shape[0]), range(plotMat.shape[1])):
-        plt.text(j, i, format(plotMat[i, j], '.2f'),
-                 horizontalalignment="center",
-                 color="white" if (plotMat[i, j] > upper_thresh or plotMat[i, j] < lower_thresh) else "black")
-
-    plt.ylabel('Classes')
-    plt.xlabel('Metrics')
-    plt.tight_layout()
-    plt.show()
-    plt.savefig('classification-report-distill.png')
- 
-plot_classification_report(classificationReport, cmap='viridis')
    
 

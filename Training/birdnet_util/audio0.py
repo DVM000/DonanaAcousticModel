@@ -110,11 +110,12 @@ def spectrogram(sig, rate, shape=(64, 512), win_len=512, fmin=150, fmax=15000, f
     # Compute overlap
     hop_len = int(len(sig) / (shape[1] - 1)) 
     win_overlap = win_len - hop_len + 2
-    #print 'WIN_LEN:', win_len, 'HOP_LEN:', hop_len, 'OVERLAP:', win_overlap
+    #print( 'WIN_LEN:', win_len, 'HOP_LEN:', hop_len, 'OVERLAP:', win_overlap)
 
     # Adjust N_FFT?
     if frequency_scale == 'mel':
         n_fft = win_len
+        n_fft = 1024 # DVM. Modified
     else:
         n_fft = shape[1] * 2
 
@@ -190,7 +191,7 @@ def spectrogram(sig, rate, shape=(64, 512), win_len=512, fmin=150, fmax=15000, f
         spec = np.concatenate([spec, np.zeros((spec.shape[0],shape[1]-spec.shape[1]))], axis=1)
         
     return spec, mel_f
-
+   
 def get_spec(sig, rate, spec_type='melspec', **kwargs):
 
     if spec_type.lower()== 'melspec':
