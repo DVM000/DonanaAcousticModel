@@ -14,6 +14,7 @@ import seaborn as sns
 from PIL import Image
 from tqdm import tqdm
 from tensorflow.keras.models import load_model
+from collections import Counter
 import argparse
 
 log.basicConfig(format='[%(levelname)s] %(message)s', level=log.INFO)
@@ -22,6 +23,8 @@ warnings.simplefilter("error", RuntimeWarning)
 
 import birdnet_util.audio as audio
 from birdnet_util.audio0 import spectrogram  # Importación de la función de espectrograma
+
+from  util import bcolors
 
 
 # ---------------------- LOAD TRAINED MODEL ---------------------- #
@@ -86,76 +89,89 @@ def apply_confidence_threshold(predictions, threshold=0.5):
             filtered_predictions[k]=(predicted_class, max_prob)
     
     return filtered_predictions
-    
-def analyze(PATH, model, LABELS, y_true):
-    listfiles = sorted(os.listdir(PATH))
-    print('Found {} files in {}'.format(len(listfiles), PATH))
-
+  
+def analyze_all(ROOT_PATH, model, LABELS):
     y_true = []
     y_pred = []
 
-    n_processed = 0
+    for class_dir in sorted(os.listdir(ROOT_PATH)):
+        class_path = os.path.join(ROOT_PATH, class_dir)
+        if not os.path.isdir(class_path):
+            continue  # Saltar archivos sueltos
 
-    for i, f in enumerate(tqdm(listfiles[:5])): 
-        if n_processed > MAX_LIMIT: 
-            print(f"Processed up to limit {MAX_LIMIT}")   
-            break
-        
-        pred_file = {}
-        if 1:#try:
-            sig, rate = audio.openAudioFile(os.path.join(PATH, f), SAMPLE_RATE, offset=0, duration=FILE_SPLITTING_DURATION, fmin=BANDPASS_FMIN, fmax=BANDPASS_FMAX)
-            chunks = audio.splitSignal(sig, rate, SIG_LENGTH, SIG_OVERLAP, SIG_MINLEN)
+        try:
+            true_class_idx = LABELS.index(class_dir)
+        except ValueError:
+            print(bcolors.WARNING+ f"Class {class_dir} not in LABELS. Skipping." +bcolors.ENDC)
+            continue
+              
+        listfiles = sorted(os.listdir(class_path))
+        print(bcolors.OKCYAN+ f"Found {len(listfiles)} files in {class_dir}"+bcolors.ENDC)
 
-            for interval, y in enumerate(chunks):
-                spec, _ = spectrogram(y, rate, shape=(128, 224))
-                try:
-                    standardized_spec = (spec - np.min(spec)) / (np.max(spec) - np.min(spec)) 
-                except RuntimeWarning:
-                    continue
+        for f in tqdm(listfiles[:5]):
+            full_path = os.path.join(class_path, f)
+            chunk_preds = []
+            print_preds = {}
 
-                spec_array = (np.asarray(standardized_spec.T) * 255)#.astype(np.uint8)
-                img = Image.fromarray(spec_array.T)
+            if 1:#try:
+                sig, rate = audio.openAudioFile(full_path, SAMPLE_RATE, offset=0, duration=FILE_SPLITTING_DURATION, fmin=BANDPASS_FMIN, fmax=BANDPASS_FMAX)
+                chunks = audio.splitSignal(sig, rate, SIG_LENGTH, SIG_OVERLAP, SIG_MINLEN)
 
-                # Preprocessing
-                img = img.resize((IMG_HEIGHT, IMG_WIDTH))
-                img = np.expand_dims(img, axis=-1)  # Añadir dimensión de canal (1)
-                img = np.repeat(img, 3, axis=-1)  # Convertir a 3 canales
-                img = np.expand_dims(img, axis=0)  # Añadir batch dimension
-                img = img.astype(np.float32) * rescaling
+                for interval, y in enumerate(chunks):
+                    spec, _ = spectrogram(y, rate, shape=(128, 224))
+                    try:
+                        standardized_spec = (spec - np.min(spec)) / (np.max(spec) - np.min(spec)) 
+                    except RuntimeWarning:
+                        continue
 
+                    spec_array = (np.asarray(standardized_spec.T) * 255)#.astype(np.uint8)
+                    img = Image.fromarray(spec_array.T)
 
-                # Model inference
-                predictions = model.predict(img, verbose=False)
-                predicted_class = np.argmax(predictions)
+                    # Preprocessing
+                    img = img.resize((IMG_HEIGHT, IMG_WIDTH))
+                    img = np.expand_dims(img, axis=-1)  # Añadir dimensión de canal (1)
+                    img = np.repeat(img, 3, axis=-1)  # Convertir a 3 canales
+                    img = np.expand_dims(img, axis=0)  # Añadir batch dimension
+                    img = img.astype(np.float32) * rescaling
+
+                    # Model inference
+                    predictions = model.predict(img, verbose=False)
+                    predicted_class = np.argmax(predictions)
              
-                # Obtener etiqueta real a partir del nombre del archivo o directorio
-                #true_class = LABELS.index(PATH.split("/")[-2])  # Ajustar según convención de nombres
-                #y_true.append(0) #true_class)
+                    # Obtener etiqueta real a partir del nombre del archivo o directorio
+                    #true_class = LABELS.index(PATH.split("/")[-2])  # Ajustar según convención de nombres
+                    #y_true.append(0) #true_class)
                 
-                y_pred.append(predicted_class)
-
-                n_processed += 1
+                    #y_pred.append(predicted_class)
+                    print_preds[f"{interval*SIG_LENGTH}-{(interval+1)*SIG_LENGTH}"] = predictions
+                    
+                    if np.max(predictions)>MIN_CONF:
+                        chunk_preds.append(predicted_class)
                 
-                pred_file[f"{interval*SIG_LENGTH}-{(interval+1)*SIG_LENGTH}"] = predictions
+                # Filtrar predicciones con el umbral de confianza
+                filtered_predictions = apply_confidence_threshold(print_preds, MIN_CONF)
+
+                # Mostrar las predicciones filtradas
+                if filtered_predictions:
+                    print(f"Predictions for {f}:")
+                    for k, p_c in filtered_predictions.items():
+                        predicted_class, confidence = p_c 
+                        try:     print(f"{k.split('-')[0]}\t{k.split('-')[1]}\t{LABELS[predicted_class]}\t{confidence:.2f}\t{f}")
+                        except:  print(f"{k.split('-')[0]}\t{k.split('-')[1]}\tclass {predicted_class}\t{confidence:.2f}\t{f}")
+                else:
+                    print(f"No prediction over {MIN_CONF} for {f}.")
                 
-            # Filtrar predicciones con el umbral de confianza
-            filtered_predictions = apply_confidence_threshold(pred_file, MIN_CONF)
+                # Determinar clase mayoritaria
+                if chunk_preds:
+                    most_common_pred = Counter(chunk_preds).most_common(1)[0][0]
+                    y_pred.append(most_common_pred)
+                    y_true.append(true_class_idx)
 
-            # Mostrar las predicciones filtradas
-            if filtered_predictions:
-                print(f"Predictions for {f}:")
-                for k, p_c in filtered_predictions.items():
-                    predicted_class, confidence = p_c 
-                    try:     print(f"{k.split('-')[0]}\t{k.split('-')[1]}\t{LABELS[predicted_class]}\t{confidence:.2f}\t{f}")
-                    except:  print(f"{k.split('-')[0]}\t{k.split('-')[1]}\tclass {predicted_class}\t{confidence:.2f}\t{f}")
-            else:
-                print(f"No prediction over {MIN_CONF} for {f}.")
+            else:#except Exception as e:
+                print(f"[Error] Cannot process audio file {os.path.join(PATH, f)}: {e}")
 
-        else:#except Exception as e:
-            print(f"[Error] Cannot process audio file {os.path.join(PATH, f)}: {e}")
-
-    return y_pred
-
+    return y_true, y_pred
+    
 
 def plot_confusion_matrix(y_true, y_pred, LABELS):
     cm = confusion_matrix(y_true, y_pred)
@@ -183,13 +199,13 @@ MAX_LIMIT = 1000
 IMG_HEIGHT = 224
 IMG_WIDTH = 224
 rescaling = 1.0 / 255.0
-MODEL_PATH = "mobilenet_spectrogram_distill.h5" #"mobilenet_spectrogram_distill11.h5"
-MIN_CONF = 0.99
+MODEL_PATH = "mobilenet_spectrogram_distill11.h5" #"mobilenet_spectrogram_distill11.h5"
+MIN_CONF = 0.5
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     #parser.add_argument("--i", help="Input data", action="store", default='/media/delia/HDD/dataset/AUDIOS/TFM/train_files/Falco naumanni/')
-    parser.add_argument("--i", help="Input data", action="store", default='/media/delia/External\ HD/TFM/birdnet-output_train/segments/Falco\ naumanni/')
+    parser.add_argument("--i", help="Input data", action="store", default='/media/delia/External\ HD/TFM/birdnet-output_train/segments/')
     parser.add_argument("--o", help="Output folder", action="store", default='./ejemplo/')
     #parser.add_argument("--min_conf", help="confidence threshold", action="store", default=0.5, type=float)
     parser.add_argument("--gt", help="Ground truth", action="store", default="Falco naumanni")
@@ -205,14 +221,22 @@ if __name__ == "__main__":
 
     model = model_loading(MODEL_PATH)
     LABELS = load_labels()
-    try:
+    '''try:
         y_true = LABELS.index(args.gt)
     except: 
         y_true = -1
     
+    #y_pred = analyze(PATH, model, LABELS, y_true)
     y_pred = analyze(PATH, model, LABELS, y_true)
+    plot_confusion_matrix(y_true*np.ones(len(y_pred)), y_pred, LABELS)
+    print(f"Accuracy: {np.sum(np.array(y_pred)==y_true)/len(y_pred):.2f}")'''
+
     
-    plot_confusion_matrix(np.ones(len(y_pred))*y_true, y_pred, LABELS)
-    print(f"Accuracy: {np.sum(np.array(y_pred)==y_true)/len(y_pred):.2f}")
+    y_true, y_pred = analyze_all(PATH, model, LABELS)
+    plot_confusion_matrix(y_true, y_pred, LABELS)
+
+    acc = np.sum(np.array(y_true) == np.array(y_pred)) / len(y_true)
+    print(f"Accuracy total: {acc:.2f}")
+
 
 

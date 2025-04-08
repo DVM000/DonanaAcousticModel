@@ -72,14 +72,9 @@ def split_and_spectrogram(PATH, PATHsave, sufix=False):
         for i,y in enumerate(chunks):
  
             # 2- Remove silence
-            '''splits = silence_removal(y, top_db=57)#, frame_length=3*rate, hop_length=0.5*rate)
-            if len(splits)>1: 
-                print(len(splits))
-                print(len(splits[0])/rate)
-                print(len(splits[1])/rate)'''
+            '''splits = silence_removal(y, top_db=57)#, frame_length=3*rate, hop_length=0.5*rate)'''
             '''db = dBFS(y)
             if db < -57: 
-                #print(db)
                 continue'''
         
             # Normalize RMS
@@ -88,18 +83,17 @@ def split_and_spectrogram(PATH, PATHsave, sufix=False):
                 y /= rms
             except RuntimeWarning:
                 continue '''   
-            # Data augmentation (time domain) -> TO DO
            
             # Compute spectrogram
             # more than 64 filters give us: UserWarning: Empty filters detected in mel frequency basis. Some channels will produce empty responses. Try increasing your sampling rate (and fmax) or reducing n_mels.
             spec,_ = spectrogram(y,rate, shape=(128,224))#shape=(64,384))# shape=(128,128)) #,shape=(NMEL,RESH))#[..., np.newaxis]  # cambiado
+            
+            # Other options:
             #spec = librosa.feature.melspectrogram(y=y, sr=rate, n_mels=224, hop_length=int(len(y) / (224 - 1)), fmin=BANDPASS_FMIN, fmax=BANDPASS_FMAX)
             #spec = librosa.power_to_db(spec)
             #spec = librosa.feature.melspectrogram(y=y, sr=rate, n_mels=128)
-            # Data augmentation (frequency domain) -> TO DO
-        
-            # Save image
-            #standardized_spec = (spec - np.mean(spec)) / np.std(spec)
+
+            # Normalize and Save image
             try:
                 standardized_spec = (spec - np.min(spec)) / (np.max(spec) - np.min(spec)) 
             except RuntimeWarning:
@@ -107,8 +101,7 @@ def split_and_spectrogram(PATH, PATHsave, sufix=False):
              #https://www.kaggle.com/code/frlemarchand/bird-song-classification-using-an-efficientnet/notebook
             spec_array = (np.asarray(standardized_spec.T)*255).astype(np.uint8)
             spec_image = Image.fromarray(spec_array.T)#.astype('uint8'))
-            #spec_image =  Image.fromarray(np.array([spec_array, spec_array, spec_array]).T) # image
-            #spec_image.save("{}{}-{:03d}.png".format(PATHsave+'/',f.split('.')[0],i,len(chunks))) # '.png'))
+            #spec_image =  Image.fromarray(np.array([spec_array, spec_array, spec_array]).T) # 3-channel image
             if sufix:  spec_image.save("{}{}-{:03d}.png".format(PATHsave+'/',os.path.splitext(f)[0],i,len(chunks))) # '.png')) # Add sufix indicating number of segment
             else:      spec_image.save("{}{}.png".format(PATHsave+'/',os.path.splitext(f)[0])) # '.png')) # Do NOT add sufix indicating number of segment
             n_processed += 1

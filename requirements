@@ -2,3 +2,6 @@ resampy
 tqdm
 librosa
 matplotlib
+tensorflow==2.14.1
+scikit-learn
+pillow==11.1.0
