@@ -65,7 +65,7 @@ def generate_raven_table(timestamps: list[str], result: dict[str, list], afile_p
     high_freq = min(high_freq, cfg.BANDPASS_FMAX)
     low_freq = max(cfg.SIG_FMIN, cfg.BANDPASS_FMIN)
 
-    predictions = {}
+    logit_predictions = {}
     segments = []
 
     # Extract valid predictions for every timestamp
@@ -88,7 +88,7 @@ def generate_raven_table(timestamps: list[str], result: dict[str, list], afile_p
                 #afiles.append(afile_path)
                 
         if interesting_timestamp:
-            predictions[timestamp] = [c[1] for c in result[timestamp]] # save predictions
+            logit_predictions[timestamp] = [c[2] for c in result[timestamp]] # save predictions (logits)
 
         # Write result string to file
         out_string += rstring
@@ -106,7 +106,7 @@ def generate_raven_table(timestamps: list[str], result: dict[str, list], afile_p
     # write predictions into file
     #print(predictions)
     #print(segments)
-    for i, timestamp in enumerate(predictions.keys()):
+    for i, timestamp in enumerate(logit_predictions.keys()):
         start, end = timestamp.split("-", 1)
         file_name = "{}_{:.1f}s_{:.1f}s.npy".format(
                     afile_path.rsplit(os.sep, 1)[-1].rsplit(".", 1)[0],
@@ -115,8 +115,8 @@ def generate_raven_table(timestamps: list[str], result: dict[str, list], afile_p
                     float(end),
                 )
         file_path = os.path.join(cfg.OUTPUT_PATH+'/npy', file_name)
-        np.save(file_path, predictions[timestamp])
-    
+        np.save(file_path, logit_predictions[timestamp])
+  
     # Extract segments
     #extractSegments(((afile_path, segments), cfg.SIG_LENGTH, cfg.getConfig()))
     
@@ -452,13 +452,13 @@ def predict(samples):
     """
     # Prepare sample and pass through model
     data = np.array(samples, dtype="float32")
-    prediction = model.predict(data)
+    prediction_logit = model.predict(data)
 
     # Logits or sigmoid activations?
-    if cfg.APPLY_SIGMOID:
-        prediction = model.flat_sigmoid(np.array(prediction), sensitivity=-cfg.SIGMOID_SENSITIVITY)
-
-    return prediction
+    if True: # cfg.APPLY_SIGMOID:
+        prediction = model.flat_sigmoid(np.array(prediction_logit), sensitivity=-cfg.SIGMOID_SENSITIVITY)
+    
+    return prediction, prediction_logit
 
 
 def get_result_file_names(fpath: str):
@@ -475,7 +475,7 @@ def get_result_file_names(fpath: str):
     file_shorthand = rpath.rsplit(".", 1)[0]
 
     if "table" in cfg.RESULT_TYPES:
-        result_names["table"] = os.path.join(cfg.OUTPUT_PATH, file_shorthand + ".BirdNET.selection.table.txt")
+        result_names["table"] = os.path.join(cfg.OUTPUT_PATH+'/txt', file_shorthand + ".BirdNET.selection.table.txt") # modified
     if "audacity" in cfg.RESULT_TYPES:
         result_names["audacity"] = os.path.join(cfg.OUTPUT_PATH, file_shorthand + ".BirdNET.results.txt")
     if "r" in cfg.RESULT_TYPES:
@@ -552,7 +552,7 @@ def analyzeFile(item):
                     continue
 
                 # Predict
-                p = predict(samples)
+                p, logits = predict(samples)
 
                 # Add to results
                 for i in range(len(samples)):
@@ -561,9 +561,10 @@ def analyzeFile(item):
 
                     # Get prediction
                     pred = p[i]
+                    logit = logits[i]
                     
                     # Assign scores to labels
-                    p_labels = zip(cfg.LABELS, pred, strict=True)
+                    p_labels = zip(cfg.LABELS, pred, logit, strict=True) # DVM: add logit
 
                     # Sort by score
                     p_sorted = list(p_labels) #sorted(p_labels, key=operator.itemgetter(1), reverse=True)
@@ -771,9 +772,9 @@ if __name__ == "__main__":
         action="store_true",
         help="Skip files that have already been analyzed. Defaults to False.",
     )
-
+    
     args = parser.parse_args()
-
+ 
     # Set paths relative to script path (requested in #3)
     cfg.MODEL_PATH = os.path.join(SCRIPT_DIR, cfg.MODEL_PATH)
     cfg.LABELS_FILE = os.path.join(SCRIPT_DIR, cfg.LABELS_FILE)

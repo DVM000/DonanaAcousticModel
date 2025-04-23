@@ -65,8 +65,13 @@ def split_and_spectrogram(PATH, PATHsave):
 	listfiles.sort()
 
 	print('Found {} files in {}'.format(len(listfiles), PATH))
-	  
+	n_processed = 0
+	
 	for i,f in enumerate(tqdm(listfiles)): 
+	
+		if n_processed > MAX_LIMIT: 
+		        print(f"Processed up to limmit {MAX_LIMIT}")   
+		        break
     
 		if 1:
 			# Open file
@@ -89,7 +94,6 @@ def split_and_spectrogram(PATH, PATHsave):
 			
 			duration = librosa.get_duration(y=sig, sr=rate)
 			
-			
 			# Extraer y guardar segmentos de audio en torno a los picos
 			for i, peak_time in enumerate(peaks):
 				start_time = max(0, peak_time - SIG_LENGTH / 2)  # Evitar valores negativos
@@ -106,22 +110,10 @@ def split_and_spectrogram(PATH, PATHsave):
 				# Extraer segmento
 				y = sig[start_sample:end_sample]
 				
-				# Normalize RMS
-				'''rms =  np.sqrt(np.mean(np.abs(y)**2, axis=0, keepdims=True))
-				try:
-					y /= rms
-				except RuntimeWarning:
-					continue   ''' 
-			    	# Data augmentation (time domain) -> TO DO
-			
 			    	# Compute spectrogram
-				spec,_ = spectrogram(y,rate) #,shape=(NMEL,RESH))#[..., np.newaxis]  # cambiado
-				#spec = librosa.feature.melspectrogram(y=y, sr=rate, n_mels=224, hop_length=int(len(y) / (224 - 1)))
-				#spec = librosa.power_to_db(spec)
-			    	# Data augmentation (frequency domain) -> TO DO
-							
-			    	# Save image
-			    	#standardized_spec = (spec - np.mean(spec)) / np.std(spec)
+				spec,_ = spectrogram(y,rate, shape=(128,224)) #,shape=(NMEL,RESH))#[..., np.newaxis]  # cambiado
+			
+			    	# Normalize and save image
 				try:
 					standardized_spec = (spec - np.min(spec)) / (np.max(spec) - np.min(spec)) 
 				except RuntimeWarning:
@@ -129,8 +121,9 @@ def split_and_spectrogram(PATH, PATHsave):
 			     	#https://www.kaggle.com/code/frlemarchand/bird-song-classification-using-an-efficientnet/notebook
 				spec_array = (np.asarray(standardized_spec.T)*255).astype(np.uint8)
 				spec_image = Image.fromarray(spec_array.T)#.astype('uint8'))
-			    	#spec_image =  Image.fromarray(np.array([spec_array, spec_array, spec_array]).T) # image
-				spec_image.save("{}{}-{:03d}.png".format(PATHsave+'/',f.split('.')[0],i,len(peaks))) # '.png'))
+				spec_image.save("{}{}-{:03d}.png".format(PATHsave+'/',os.path.splitext(f)[0],i,len(peaks)))
+				#spec_image.save("{}{}.png".format(PATHsave+'/',os.path.splitext(f)[0]))
+				n_processed += 1
 	    
 		if 0:#except:
 			print(f"[Error] Cannot process audio file {os.path.join(PATH,f)}")      
@@ -156,6 +149,7 @@ SIG_LENGTH = 3.0		# input interval cambiado
 SIG_OVERLAP = 0			# overlap between consecutive intervals
 SIG_MINLEN = SIG_LENGTH 	# minimum length of audio chunk. For training, take SIG_LENGTH-duration chunks
 TH_DB = -45
+MAX_LIMIT = 200                # maximum number of files to generate
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser()

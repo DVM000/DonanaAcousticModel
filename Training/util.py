@@ -36,6 +36,7 @@ def check_GPU():
     else:
         print(bcolors.WARNING+"WARNING: no GPU found."+bcolors.ENDC)
     print(gpus)
+    return gpus
    
 # ---------------------- DISTILLATION. MODEL CUSTOM FUNCTIONS ---------------------- #
 
@@ -94,15 +95,49 @@ def plot_history_1(acc,val_acc,loss,val_loss, namefig='fig1.png'):
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.metrics import ConfusionMatrixDisplay
 
+from sklearn.metrics import average_precision_score
+from sklearn.preprocessing import label_binarize
+from sklearn.metrics import matthews_corrcoef
+from sklearn.metrics import balanced_accuracy_score, accuracy_score
+from sklearn.metrics import f1_score
+from sklearn.metrics import roc_auc_score
 
+def calculate_metrics(true_classes, predIdxs, predIdxs_prob):
+    #print('Accuracy {:.2f}%'.format( 100*sum( (predIdxs.squeeze()==true_classes))/ true_classes.shape[0] ) ) 
+    acc = accuracy_score(true_classes, predIdxs)
+    print(f'Accuracy: {acc:.4f}') 
+        
+    balanced_acc = balanced_accuracy_score(true_classes, predIdxs)
+    print(f'Balanced Accuracy: {balanced_acc:.4f}') 
+    
+    f1_macro = f1_score(true_classes, predIdxs, average='macro')
+    f1_weighted = f1_score(true_classes, predIdxs, average='weighted')
+    f1_micro = f1_score(true_classes, predIdxs, average='micro')
+    print(f'F1 Score (Macro): {f1_macro:.4f}')
+    print(f'F1 Score (Weighted): {f1_weighted:.4f}')
+    print(f'F1 Score (Micro): {f1_micro:.4f}')
+    
+    auc = roc_auc_score(true_classes, predIdxs_prob, multi_class='ovr') # one-vs-rest
+    print(f"AUC one-vs-rest: {auc:.2f}")
+    auc = roc_auc_score(true_classes, predIdxs_prob, multi_class='ovo') # one-vs-one
+    print(f"AUC one-vs-one: {auc:.2f}")
+      
+    # Binarize labels for multi-class PR AUC
+    y_true_bin = label_binarize(true_classes, classes=np.unique(true_classes).tolist())  # adjust classes as needed
+    average_precision = average_precision_score(true_classes, predIdxs_prob, average="macro")
+    print(f'Macro-average Precision-Recall AUC: {average_precision:.4f}')
+
+    mcc = matthews_corrcoef(true_classes, predIdxs)
+    print(f'Matthews Correlation Coefficient: {mcc:.4f}')
+   
+    
 def plot_confusion_matrix(true_classes, predIdxs, LABELS, FIGNAME='confusion_matrix.png'):
     print('Confusion Matrix')
     cm = confusion_matrix(true_classes, predIdxs) #, labels=LABELS)
     print(cm) 
-    print('Accuracy {:.2f}%'.format( 100*sum( (predIdxs.squeeze()==true_classes))/ true_classes.shape[0] ) ) 
     cmP = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=LABELS)
     fig, ax = plt.subplots(figsize=(60,60))
-    cmP.plot(ax=ax, colorbar=False)
+    cmP.plot(ax=ax, colorbar=False, xticks_rotation='vertical') #, include_values=False)
     cax = fig.add_axes([ax.get_position().x1+0.01,ax.get_position().y0,0.02,ax.get_position().height])
     plt.colorbar(cmP.im_,  cax=cax)
     plt.show()
@@ -114,7 +149,7 @@ import itertools
 import re
 
 def plot_classification_report(classificationReport,
-                               title='Classification report',
+                               title='Classification report', topN=5,
                                cmap='RdBu', FIGNAME='classification-report.png'):
 
     classificationReport = classificationReport.replace('\n\n', '\n')
@@ -136,7 +171,28 @@ def plot_classification_report(classificationReport,
     xticklabels = ['Precision', 'Recall', 'F1-score']
     yticklabels = ['{0} ({1})'.format(class_names[idx], sup)
                    for idx, sup in enumerate(support)]
+                   
+    # Extraer métricas individuales por categorias
+    precisions = plotMat[:, 0]
+    recalls = plotMat[:, 1]
+    f1_scores = plotMat[:, 2]
 
+    # lista de tuplas. Ordenar por F1-score
+    class_metrics = list(zip(class_names, precisions, recalls, f1_scores, support))
+    class_metrics_sorted = sorted(class_metrics, key=lambda x: x[3], reverse=True)
+
+    def print_metrics(title, data):
+        print(title)
+        print(f"{'Class':<20}{'Precision':>10}{'Recall':>10}{'F1-score':>10}{'Support':>10}")
+        print("-" * 65)
+        for name, prec, rec, f1, sup in data:
+            print(f"{name:<20}{prec:10.2f}{rec:10.2f}{f1:10.2f}{sup:10}")
+        print()
+
+    print_metrics(f"Top-{topN} best performing categories:", class_metrics_sorted[:topN])
+    print_metrics(f"Top-{topN} worst performing categories:", class_metrics_sorted[-topN:])
+
+    # Figura  
     plt.figure(figsize=(10, 20))
     plt.imshow(plotMat, interpolation='nearest', cmap=cmap, aspect='auto')
     plt.title(title)
@@ -158,3 +214,20 @@ def plot_classification_report(classificationReport,
     plt.savefig(FIGNAME)
     print(bcolors.OKCYAN+ f"Saved {FIGNAME}" +bcolors.ENDC)
  
+from sklearn.metrics import roc_curve, auc
+
+def plot_ROC(true_classes, predIdxs_prob, FIGNAME='saved ROC.png'):
+    plt.figure()
+    y_true_bin = label_binarize(true_classes, classes=np.arange(predIdxs_prob.shape[1]))
+    for i in range(predIdxs_prob.shape[1]):
+        fpr, tpr, _ = roc_curve(y_true_bin[:, i], predIdxs_prob[:, i])
+        plt.plot(fpr, tpr, label=f"Clase {i} (AUC: {auc(fpr, tpr):.2f})")
+
+    #plt.legend()
+    plt.title("Per-class ROC Curves")
+    plt.xlabel("FPR")
+    plt.ylabel("TPR")
+    plt.grid()
+    plt.show()
+    plt.savefig('ROC.png')
+    print(bcolors.OKCYAN+FIGNAME+bcolors.ENDC)

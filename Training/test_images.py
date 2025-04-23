@@ -9,16 +9,18 @@ import matplotlib.pyplot as plt
 import tqdm
 import random 
 
-from  util import bcolors, check_GPU, plot_confusion_matrix, plot_classification_report
+from  util import bcolors, check_GPU, plot_confusion_matrix, plot_classification_report, calculate_metrics, plot_ROC
 
 
 # ---------------------- PARAMETERS ---------------------- #
-MODEL_PATH = "mobilenet_spectrogram_distill.h5"
+MODEL_PATH = "mobilenet_spectrogram_distill-all305.h5"
 
 TEST_IMAGE_DIR = "./tfm-external/less_classes/test/imgs/" # Ruta de la carpeta con imágenes organizadas por categorías
 TEST_NPY_DIR = "./tfm-external/less_classes/test/npy/"  # Ruta de la carpeta con archivos .npy de soft labels
 
-MAX_PER_CLASS = 1000 # maximum data to take of each category
+TEST_IMAGE_DIR = "./AUDIOSTFM/test_imgs/"
+
+MAX_PER_CLASS = 100 # maximum data to take of each category
 MIN_PER_CLASS = 50 # minimum data to take of each category
 
 IMG_HEIGHT = 224 
@@ -86,7 +88,7 @@ model.summary()
 print(model.input)
 
 # ---------------------- DATA LOADING ---------------------- #
-def load_data_nonpy(image_path, category_list=[]):
+def load_data_nonpy(image_path, MAX_PER_CLASS, MIN_PER_CLASS, category_list=[]):
     """
     Carga imágenes y soft labels desde carpetas organizadas por categorías.
 
@@ -102,9 +104,9 @@ def load_data_nonpy(image_path, category_list=[]):
     # Recorrer categorías (subcarpetas)
     if len(category_list)<1:
         category_list = sorted(os.listdir(image_path)) # subcarpetas si no se especifica lista
-        MIN_ = MIN_PER_CLASS 
+    '''    MIN_ = MIN_PER_CLASS 
     else:
-        MIN_ = 0  # si se especifica lista, no usamos minimo
+        MIN_ = 0  # si se especifica lista, no usamos minimo'''
         
     ii = -1
     for i,category in enumerate(category_list):
@@ -116,7 +118,7 @@ def load_data_nonpy(image_path, category_list=[]):
 
         image_list = os.listdir(category_img_path)
 
-        if len(image_list) < MIN_: 
+        if len(image_list) < MIN_PER_CLASS: 
             print(f"Skipping category ({i}) {category}: only {len(os.listdir(category_img_path))} files")
             continue
         
@@ -218,7 +220,7 @@ NUM_CLASSES = len(LABELS)
 # ---------------------- TEST MODEL ---------------------- #
 print(f"Loading data...")
 
-test_image_files, test_hard_labels, _ = load_data_nonpy(TEST_IMAGE_DIR, LABELS)
+test_image_files, test_hard_labels, _ = load_data_nonpy(TEST_IMAGE_DIR, MAX_PER_CLASS, 0, LABELS)
 test_image_files = tf.constant(test_image_files, dtype=tf.string)
 
 test_dataset = tf.data.Dataset.from_tensor_slices((test_image_files, test_hard_labels))
@@ -229,8 +231,8 @@ test_dataset = test_dataset.batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
 print(f"Número de imágenes en test: {len(test_image_files)}")
   
 true_classes = np.array(test_hard_labels) #test_generator.classes[test_generator.index_array].squeeze()  # esto debe ir antes que predict() 
-predIdxs = model.predict(test_dataset) #,steps=1 )
-predIdxs = np.argmax(predIdxs, axis=1)
+predIdxs_prob = model.predict(test_dataset) #,steps=1 )
+predIdxs = np.argmax(predIdxs_prob, axis=1)
 
 #print(true_classes)
 #print(predIdxs)
@@ -241,7 +243,11 @@ from sklearn.metrics import classification_report
 classificationReport = classification_report(true_classes, predIdxs, target_names=LABELS)
 print(classificationReport)
 plot_classification_report(classificationReport, cmap='viridis', FIGNAME='classification-report-distill.png')
-   
+
+
+calculate_metrics(true_classes, predIdxs, predIdxs_prob)
+plot_ROC(true_classes, predIdxs_prob)
+
 '''
 # ---- From ImageDataGenerator
 print('ImageDataGenerator')
