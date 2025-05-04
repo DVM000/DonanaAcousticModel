@@ -98,14 +98,20 @@ from sklearn.metrics import ConfusionMatrixDisplay
 from sklearn.metrics import average_precision_score
 from sklearn.preprocessing import label_binarize
 from sklearn.metrics import matthews_corrcoef
-from sklearn.metrics import balanced_accuracy_score, accuracy_score
-from sklearn.metrics import f1_score
+from sklearn.metrics import balanced_accuracy_score, accuracy_score, top_k_accuracy_score, average_precision_score
+from sklearn.metrics import f1_score, fbeta_score
 from sklearn.metrics import roc_auc_score
 
 def calculate_metrics(true_classes, predIdxs, predIdxs_prob):
     #print('Accuracy {:.2f}%'.format( 100*sum( (predIdxs.squeeze()==true_classes))/ true_classes.shape[0] ) ) 
-    acc = accuracy_score(true_classes, predIdxs)
-    print(f'Accuracy: {acc:.4f}') 
+    #acc = accuracy_score(true_classes, predIdxs)
+    #print(f'Accuracy: {acc:.4f}') 
+    
+    top1_acc = accuracy_score(true_classes, predIdxs)
+    top5_acc = top_k_accuracy_score(true_classes, predIdxs_prob, k=5, labels=np.arange(predIdxs_prob.shape[1]))
+
+    print(f"Top-1 Accuracy: {top1_acc:.2f}")
+    print(f"Top-5 Accuracy: {top5_acc:.2f}")
         
     balanced_acc = balanced_accuracy_score(true_classes, predIdxs)
     print(f'Balanced Accuracy: {balanced_acc:.4f}') 
@@ -117,6 +123,10 @@ def calculate_metrics(true_classes, predIdxs, predIdxs_prob):
     print(f'F1 Score (Weighted): {f1_weighted:.4f}')
     print(f'F1 Score (Micro): {f1_micro:.4f}')
     
+    # F0.5-score
+    f05 = fbeta_score(true_classes, predIdxs, beta=0.5, average='macro')
+    print(f'F05-score (Macro): {f05:.4f}')
+        
     auc = roc_auc_score(true_classes, predIdxs_prob, multi_class='ovr') # one-vs-rest
     print(f"AUC one-vs-rest: {auc:.2f}")
     auc = roc_auc_score(true_classes, predIdxs_prob, multi_class='ovo') # one-vs-one
@@ -125,10 +135,12 @@ def calculate_metrics(true_classes, predIdxs, predIdxs_prob):
     # Binarize labels for multi-class PR AUC
     y_true_bin = label_binarize(true_classes, classes=np.unique(true_classes).tolist())  # adjust classes as needed
     average_precision = average_precision_score(true_classes, predIdxs_prob, average="macro")
-    print(f'Macro-average Precision-Recall AUC: {average_precision:.4f}')
+    print(f'mAP: Macro-average Precision-Recall AUC: {average_precision:.4f}')
 
     mcc = matthews_corrcoef(true_classes, predIdxs)
     print(f'Matthews Correlation Coefficient: {mcc:.4f}')
+    
+ 
    
     
 def plot_confusion_matrix(true_classes, predIdxs, LABELS, FIGNAME='confusion_matrix.png'):
