@@ -13,14 +13,14 @@ from  util import bcolors, check_GPU, plot_confusion_matrix, plot_classification
 
 
 # ---------------------- PARAMETERS ---------------------- #
-MODEL_PATH = "mobilenet_spectrogram_distill-all305.h5"
+MODEL_PATH = "mobilenet_spectrogram_distill-all305.h5" # all305-add.h5
 
-TEST_IMAGE_DIR = "./tfm-external/less_classes/test/imgs/" # Ruta de la carpeta con imágenes organizadas por categorías
-TEST_NPY_DIR = "./tfm-external/less_classes/test/npy/"  # Ruta de la carpeta con archivos .npy de soft labels
+TEST_IMAGE_DIR = "./tfm-external/less_classes/test/imgs/" # Ruta con subcarpetas de imagenes por cateogorias
+TEST_NPY_DIR = "./tfm-external/less_classes/test/npy/"  # Ruta a archivos .npy de soft labels
 
 TEST_IMAGE_DIR = "./AUDIOSTFM/test_imgs/"
 
-MAX_PER_CLASS = 100 # maximum data to take of each category
+MAX_PER_CLASS = 1000 # maximum data to take of each category
 MIN_PER_CLASS = 50 # minimum data to take of each category
 
 IMG_HEIGHT = 224 
@@ -33,20 +33,22 @@ rescaling = 1.0 / 255.0  # Normalización
 
 #TH_CONF = 0.5  # Umbral de confianza mínima
 
+SELECTED_SPECIES_FILE = "selected-species-model.txt"
+
 
 # ---------------------- LOAD TRAINED MODEL ---------------------- #
 print(f"Loading model...")
 
 def distillation_loss(y_true, y_pred):
     """
-    Pérdida combinada de crossentropy y KL Divergence.
+    Funcion de perdidas mezcla de crossentropy y KL Divergence.
     """
     num_classes = y_pred.shape[-1]  # Asegurar que num_classes es correcto
     hard_labels = y_true[:, -num_classes:]
     soft_labels = y_true[:, :num_classes] 
     #print(hard_labels); print(soft_labels); print(y_pred)
     
-    # Convertir a float32 por estabilidad numérica
+    # Convertir a float32 
     soft_labels = tf.cast(soft_labels, tf.float32)
     hard_labels = tf.cast(hard_labels, tf.float32)
     y_pred = tf.cast(y_pred, tf.float32)
@@ -55,31 +57,31 @@ def distillation_loss(y_true, y_pred):
     soft_labels_softmax = tf.nn.softmax(soft_labels / temperature, axis=-1)
     y_pred_softmax = tf.nn.softmax(y_pred / temperature, axis=-1)  # Para KL Divergence
 
-    # Cálculo de pérdidas
-    kl_loss = tf.keras.losses.KLDivergence()(soft_labels_softmax, y_pred_softmax)
+    # Cálculo de funciones de perdidas
+    kl_loss = tf.keras.losses.KLDivergence()(soft_labels_softmax, y_pred_softmax) * temperature**2
     hard_loss = tf.keras.losses.CategoricalCrossentropy(from_logits=False)(hard_labels, y_pred)
     #print("Hard Loss:", hard_loss.numpy(), "KL Loss:", kl_loss.numpy())
 
-    # Mezcla de pérdidas
+    # Mezcla ponderada de perdidas
     total_loss = alpha * hard_loss + (1 - alpha) * kl_loss
     return total_loss
 
 def custom_accuracy(y_true, y_pred):
     """
-    Calcula la precisión usando solo las hard labels.
+    Accuracy a partir de hard labels. y_true es la concatenacion de soft labels + hard labels
     """
-    num_classes = tf.shape(y_pred)[-1]  # Número de clases dinámico
+    num_classes = tf.shape(y_pred)[-1]  # Número de clases 
 
-    # Extraer etiquetas duras (últimas columnas de y_true)
+    # Extraer hard labels (ultimas columnas de y_true)
     hard_labels = y_true[:, -num_classes:]
     true_classes = tf.argmax(hard_labels, axis=-1)
 
-    # Predicción del modelo
+    # Prediccion del modelo
     pred_classes = tf.argmax(y_pred, axis=-1)
 
     # Comparar y calcular accuracy
     accuracy = tf.cast(tf.equal(true_classes, pred_classes), dtype=tf.float32)
-    return tf.keras.backend.mean(accuracy)  # Promedio de aciertos
+    return tf.keras.backend.mean(accuracy)  # promedio de correctos
 
 
 model = load_model(MODEL_PATH, custom_objects={"distillation_loss": distillation_loss, "custom_accuracy": custom_accuracy})
@@ -90,12 +92,12 @@ print(model.input)
 # ---------------------- DATA LOADING ---------------------- #
 def load_data_nonpy(image_path, MAX_PER_CLASS, MIN_PER_CLASS, category_list=[]):
     """
-    Carga imágenes y soft labels desde carpetas organizadas por categorías.
+    Carga imágenes y soft labels. A diferencia de la funcion anterior, esta NO busca ficheros .npy (puede ser lento si hay muchos)
 
-    image_path: Ruta a la carpeta con imágenes organizadas en subdirectorios.
-    category_list: Lista deseada de categorias (subdirectorios a buscar). Si no se especifica, se toma de subdirectorios y se aplica MIN_PER_CLASS.
+    image_path: Ruta a imagenes en subcarpetas.
+    category_list: Lista deseada de categorias (subdirectorios a buscar). Si no se especifica, se toma de subdirectorios.
 
-    Retorna listas de rutas de imágenes y sus etiquetas.
+    Devuelve listas de rutas de imágenes y sus etiquetas.
     """
     image_files = []
     hard_labels = []
@@ -148,10 +150,10 @@ def load_and_preprocess_image(image_path, label, augment=False):
     """
     Carga una imagen y la preprocesa para el entrenamiento.
     
-    Parámetros:
-    - image_path: Ruta de la imagen.
-    - label: Etiqueta de la imagen.
-    - augment: Booleano para aplicar o no data augmentation.
+    Parametros:
+    - image_path: ruta de la imagen.
+    - label: etiqueta.
+    - augment: aplicar o no data augmentation.
     """
     if isinstance(image_path, tf.Tensor):
         image_path = image_path.decode("utf-8")  # Convertir a string
@@ -161,35 +163,35 @@ def load_and_preprocess_image(image_path, label, augment=False):
     if augment: # solo para training
         image = data_augmentation(image) #  Add data augmentation
         
-    image = tf.cast(image, tf.float32)  # Asegurar float32 después de la data augmentation'''
+    image = tf.cast(image, tf.float32)  # Asegurar float32 después de la data augmentation
     
-    ''''image = tf.io.read_file(image_path)
+    '''image = tf.io.read_file(image_path)
     image = tf.image.decode_png(image, channels=3)
     image = tf.image.resize(image, [IMG_HEIGHT, IMG_WIDTH])
     image = img_to_array(image) * rescaling  # Normalización'''
     
-    # Asegurar que label es un tensor con la forma correcta
+    # Pasar a tensor
     label = tf.convert_to_tensor(label, dtype=tf.float32)
-    #label.set_shape([num_classes])  # Establecer la forma explícitamente
+    #label.set_shape([num_classes])  # Establecer la forma 
     return image, label
 
 def parse_function(image_path, label, augment=False):
     """
     Función de preprocesamiento usando `tf.numpy_function`.
     """
-    # Necesitamos envolver las funciones de numpy en un tf.Tensor, para poder usarlas en el pipeline de tf.data.Dataset.
+    # Para tf.data.Dataset, necesitamos envolver las funciones de numpy en un tf.Tensor
     image, label = tf.numpy_function(func=load_and_preprocess_image, 
                                      inp=[image_path, label, augment], 
                                      Tout=(tf.float32, tf.float32))
 
-    image.set_shape([IMG_HEIGHT, IMG_WIDTH, 3])  # Definir forma de imagen
+    image.set_shape([IMG_HEIGHT, IMG_WIDTH, 3])  # Definir tamaño de entrada
     #label.set_shape([soft_labels.shape[1]])  
     #num_classes_total = soft_labels.shape[1] + hard_labels.shape[1] 
     #label.set_shape([num_classes_total])  # Definir número de clases *2
 
     return image, label
     
-# Crear versiones separadas
+# Versiones separadas con/sin augmentation
 def parse_function_train(image_path, label):
     return parse_function(image_path, label, augment=True)
 
@@ -201,8 +203,7 @@ def parse_function_eval(image_path, label):
 '''with open(f'birdnet_idx.json', 'r') as fp:
     idx_dict = json.load(fp)'''
 
-
-with open("selected-species-model.txt", "r") as f:
+with open(SELECTED_SPECIES_FILE, "r") as f:
    LABELS = [line.strip() for line in f]
 print(LABELS)
 
@@ -213,9 +214,11 @@ for l in LABELS:
     idx.append(idx_dict[l]-1)
 print(f"Selected indexes for our categories: {idx}")'''
 
+#LABELS = sorted(os.listdir(TEST_IMAGE_DIR))
+#LABELS = LABELS + sorted(os.listdir("AUDIOSTFM/train_fshot2"))
+
 print(f"Target categories {LABELS}")
 NUM_CLASSES = len(LABELS)
-
 
 # ---------------------- TEST MODEL ---------------------- #
 print(f"Loading data...")
@@ -230,8 +233,8 @@ test_dataset = test_dataset.batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
 
 print(f"Número de imágenes en test: {len(test_image_files)}")
   
-true_classes = np.array(test_hard_labels) #test_generator.classes[test_generator.index_array].squeeze()  # esto debe ir antes que predict() 
-predIdxs_prob = model.predict(test_dataset) #,steps=1 )
+true_classes = np.array(test_hard_labels) 
+predIdxs_prob = model.predict(test_dataset) 
 predIdxs = np.argmax(predIdxs_prob, axis=1)
 
 #print(true_classes)
@@ -242,7 +245,7 @@ plot_confusion_matrix(true_classes, predIdxs, LABELS, FIGNAME='confusion_matrix-
 from sklearn.metrics import classification_report
 classificationReport = classification_report(true_classes, predIdxs, target_names=LABELS)
 print(classificationReport)
-plot_classification_report(classificationReport, cmap='viridis', FIGNAME='classification-report-distill.png')
+plot_classification_report(classificationReport, topN=20, cmap='viridis', FIGNAME='classification-report-distill.png')
 
 
 calculate_metrics(true_classes, predIdxs, predIdxs_prob)

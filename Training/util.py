@@ -59,7 +59,6 @@ def configure_image_preprocessing(height, width, scale, temp, a):
     alpha = a
     
 
-
 # ---------------------- TRAIN MODEL ---------------------- #
 def plot_history_1(acc,val_acc,loss,val_loss, namefig='fig1.png'):
   plt.figure(figsize=(12, 12))
