@@ -249,6 +249,7 @@ Phylloscopus sibilatrix_Wood Warbler
 Phylloscopus trochilus_Willow Warbler
 Pica pica_Common Magpie
 Picus sharpei_Iberian Green Woodpecker
+Picus viridis_Eurasian Green Woodpecker
 Platalea leucorodia_Eurasian Spoonbill
 Plegadis falcinellus_Glossy Ibis
 Ploceus cucullatus_Village Weaver

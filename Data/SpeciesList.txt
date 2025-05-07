@@ -260,6 +260,7 @@ Phylloscopus sibilatrix
 Phylloscopus trochilus
 Pica pica
 Picus sharpei
+Picus viridis
 Platalea leucorodia
 Plegadis falcinellus
 Ploceus cucullatus
