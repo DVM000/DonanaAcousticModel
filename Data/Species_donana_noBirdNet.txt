@@ -1,0 +1,16 @@
+Aquila fasciata_Bonelli's Eagle_Águila Perdicera
+Ardenna gravis_Great Shearwater_Pardela Capirotada
+Falco biarmicus_Lanner Falcon_Halcón Borní
+Falco cherrug_Saker Falcon_Halcón Sacre
+Falco eleonorae_Eleonora's Falcon_Halcón de Eleonor
+Gyps rueppelli_R\u00fcppell's Griffon_Buitre de Rüpell
+Marmaronetta angustirostris_Marbled Teal_Cerceta Pardilla
+Neophron percnopterus_Egyptian Vulture_Alimoche
+Oceanites oceanicus_Wilson's Storm-Petrel_Paiño de Wilson
+Otis tarda_Great Bustard_Avutarda
+Oxyura leucocephala_White-headed Duck_Malvasía
+Puffinus mauretanicus_Balearic Shearwater_Pardela Balear
+Threskiornis aethiopicus_African Sacred Ibis_Ibis Sagrado
+Vanellus gregarius_Sociable Lapwing_Avefría Social
+
+
