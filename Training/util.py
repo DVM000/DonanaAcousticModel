@@ -109,8 +109,8 @@ def calculate_metrics(true_classes, predIdxs, predIdxs_prob):
     top1_acc = accuracy_score(true_classes, predIdxs)
     top5_acc = top_k_accuracy_score(true_classes, predIdxs_prob, k=5, labels=np.arange(predIdxs_prob.shape[1]))
 
-    print(f"Top-1 Accuracy: {top1_acc:.2f}")
-    print(f"Top-5 Accuracy: {top5_acc:.2f}")
+    print(f"Top-1 Accuracy: {top1_acc:.4f}")
+    print(f"Top-5 Accuracy: {top5_acc:.4f}")
         
     balanced_acc = balanced_accuracy_score(true_classes, predIdxs)
     print(f'Balanced Accuracy: {balanced_acc:.4f}') 
@@ -146,7 +146,11 @@ def plot_confusion_matrix(true_classes, predIdxs, LABELS, FIGNAME='confusion_mat
     print('Confusion Matrix')
     cm = confusion_matrix(true_classes, predIdxs) #, labels=LABELS)
     print(cm) 
-    cmP = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=LABELS)
+    if cm.shape[0] == len(LABELS):
+        cmP = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=LABELS)
+    else:
+        cmP = ConfusionMatrixDisplay(confusion_matrix=cm)
+        print(bcolors.WARNING+ '[WARNING] less classes than target LABELS' +bcolors.ENDC)
     fig, ax = plt.subplots(figsize=(60,60))
     cmP.plot(ax=ax, colorbar=False, xticks_rotation='vertical') #, include_values=False)
     cax = fig.add_axes([ax.get_position().x1+0.01,ax.get_position().y0,0.02,ax.get_position().height])
