@@ -9,11 +9,11 @@ import matplotlib.pyplot as plt
 import tqdm
 import random 
 
-from  util import bcolors, check_GPU, plot_confusion_matrix, plot_classification_report, calculate_metrics, plot_ROC
+from  util import bcolors, check_GPU, plot_confusion_matrix, plot_classification_report, calculate_metrics, plot_ROC, test_check_data
 
 
 # ---------------------- PARAMETERS ---------------------- #
-MODEL_PATH = "mobilenet_spectrogram_distill-all305.h5" # all305-add.h5
+MODEL_PATH = "mobilenet_spectrogram-all305-224-add.h5" # all305-add.h5
 
 TEST_IMAGE_DIR = "./tfm-external/less_classes/test/imgs/" # Ruta con subcarpetas de imagenes por cateogorias
 TEST_NPY_DIR = "./tfm-external/less_classes/test/npy/"  # Ruta a archivos .npy de soft labels
@@ -24,16 +24,21 @@ MAX_PER_CLASS = 1000 # maximum data to take of each category
 MIN_PER_CLASS = 50 # minimum data to take of each category
 
 IMG_HEIGHT = 224 
-IMG_WIDTH = 224 
+#IMG_HEIGHT = 128
+IMG_WIDTH = IMG_HEIGHT
 CHANNELS = 3
 
 BATCH_SIZE = 32
 
 rescaling = 1.0 / 255.0  # Normalización
 
-#TH_CONF = 0.5  # Umbral de confianza mínima
+#TH_CONF = 0.5  # Umbral de confianza minima
 
-SELECTED_SPECIES_FILE = "selected-species-model.txt"
+# Solo testeamos en clases entrenadas por el modelo
+SELECTED_SPECIES_FILE = "selected-species-model-add.txt" # set to "" to take list of subdirectories
+#SELECTED_SPECIES_FILE = "" 
+
+exp_sufix = '-prueba' # sufix for plot figures generated in this experiment
 
 
 # ---------------------- LOAD TRAINED MODEL ---------------------- #
@@ -203,9 +208,13 @@ def parse_function_eval(image_path, label):
 '''with open(f'birdnet_idx.json', 'r') as fp:
     idx_dict = json.load(fp)'''
 
-with open(SELECTED_SPECIES_FILE, "r") as f:
-   LABELS = [line.strip() for line in f]
-print(LABELS)
+try:
+    with open(SELECTED_SPECIES_FILE, "r") as f:
+         LABELS = [line.strip() for line in f]
+except:
+    LABELS = sorted(os.listdir(TEST_IMAGE_DIR))
+    
+print(LABELS, len(LABELS))
 
 '''# Select indices from idx_dict and LABELS:
 idx = []
@@ -214,8 +223,8 @@ for l in LABELS:
     idx.append(idx_dict[l]-1)
 print(f"Selected indexes for our categories: {idx}")'''
 
-#LABELS = sorted(os.listdir(TEST_IMAGE_DIR))
-#LABELS = LABELS + sorted(os.listdir("AUDIOSTFM/train_fshot2"))
+
+#LABELS = LABELS #+ sorted(os.listdir("AUDIOSTFM/fewshot_imgs/train"))
 
 print(f"Target categories {LABELS}")
 NUM_CLASSES = len(LABELS)
@@ -234,18 +243,20 @@ test_dataset = test_dataset.batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
 print(f"Número de imágenes en test: {len(test_image_files)}")
   
 true_classes = np.array(test_hard_labels) 
-predIdxs_prob = model.predict(test_dataset) 
+predIdxs_prob = model.predict(test_dataset)#, steps=20); true_classes = true_classes[:20*32]
 predIdxs = np.argmax(predIdxs_prob, axis=1)
 
 #print(true_classes)
 #print(predIdxs)
 
-plot_confusion_matrix(true_classes, predIdxs, LABELS, FIGNAME='confusion_matrix-distill.png')
+test_check_data(true_classes, predIdxs_prob, LABELS)
+
+plot_confusion_matrix(true_classes, predIdxs, LABELS, FIGNAME=f'confusion_matrix-{exp_sufix}.png')
 
 from sklearn.metrics import classification_report
 classificationReport = classification_report(true_classes, predIdxs, target_names=LABELS)
 print(classificationReport)
-plot_classification_report(classificationReport, topN=20, cmap='viridis', FIGNAME='classification-report-distill.png')
+plot_classification_report(classificationReport, topN=20, cmap='viridis', FIGNAME=f'classification-report-{exp_sufix}.png')
 
 
 calculate_metrics(true_classes, predIdxs, predIdxs_prob)

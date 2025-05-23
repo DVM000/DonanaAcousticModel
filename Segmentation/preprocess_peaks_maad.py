@@ -30,7 +30,7 @@ from maad import sound, rois, util
 # --------------------------------------------------------------------------
 
 # Si vamos a usar el espectrograma de BirdNet, mejor samplear a 48000 (con openAudioFile o indicandolo en librosa.load), 
-#  o si no perderemos las altas frecuencias del espectrograma
+#  en caso contrario perderemos las altas frecuencias del espectrograma
     
 def agrupar_picos(valores, umbral=0.5):
     # Ordenar valores
@@ -73,22 +73,17 @@ def split_and_spectrogram(PATH, PATHsave):
 		        print(f"Processed up to limmit {MAX_LIMIT}")   
 		        break
     
-		if 1:
+		try:
 			# Open file
 			print(os.path.join(PATH,f))
 			sig, rate = audio.openAudioFile(os.path.join(PATH,f), SAMPLE_RATE, offset=0, duration=FILE_SPLITTING_DURATION, fmin=BANDPASS_FMIN, fmax=BANDPASS_FMAX)
 			
-			'''if(np.random.rand() < 0.5):
-				filem = random.sample(listfiles,1)[0] # randomly choose one path for mixup
-				vocal, r = audio.openAudioFile(os.path.join(PATH,filem), SAMPLE_RATE, offset=0, duration=FILE_SPLITTING_DURATION, fmin=BANDPASS_FMIN, fmax=BANDPASS_FMAX)	
-				sig = add_vocal(sig, vocal, 2, 3)'''
-				
 			# Split into raw audio chunks (3-sec intervals)
 			Sxx, tn ,fn ,ext = sound.spectrogram(sig, rate, nperseg=512, noverlap=256)
 			Sxx_db = util.power2dB(Sxx, db_range=80)
 			
 			peak_time, peak_freq = rois.spectrogram_local_max(Sxx_db, tn, fn, ext, min_distance=int(0.1/(tn[1]-tn[0])), threshold_abs=TH_DB, display=False)  
-			if not len(peak_time): continue      
+			if not len(peak_time): print(f"NO Picos"); continue      
 			peaks = agrupar_picos(peak_time, umbral=1.5)
 			print(f"Encontrados {len(peaks)} picos")
 			
@@ -125,18 +120,9 @@ def split_and_spectrogram(PATH, PATHsave):
 				#spec_image.save("{}{}.png".format(PATHsave+'/',os.path.splitext(f)[0]))
 				n_processed += 1
 	    
-		if 0:#except:
+		except:
 			print(f"[Error] Cannot process audio file {os.path.join(PATH,f)}")      
 
-def add_vocal(input_sg, vocal_sg, beta1=2, beta2=3): # beta1 & beta2: Control the beta distribution to sample the weighting between the spectrograms
-    min_len = min(len(input_sg), len(vocal_sg))
-    proportion = np.random.beta(beta1,beta2)
-    output_sg = input_sg.copy()
-    output_sg[:min_len] = (proportion*input_sg[:min_len] + (1-proportion)*vocal_sg[:min_len])
-    return output_sg
-    
-#leer maximo 5k por categoria, 2k val o algo asi. Habria que probar que entrena la red luego
-#Probar con 10 clases.
 
 ## Parameters (see BirdNet config.py)
 # --------------------------------------------------------------------------
@@ -148,7 +134,7 @@ BANDPASS_FMAX = 15000
 SIG_LENGTH = 3.0		# input interval cambiado
 SIG_OVERLAP = 0			# overlap between consecutive intervals
 SIG_MINLEN = SIG_LENGTH 	# minimum length of audio chunk. For training, take SIG_LENGTH-duration chunks
-TH_DB = -45
+TH_DB = -60                     # threshold to detect peaks. Lower, more detections     
 MAX_LIMIT = 200                # maximum number of files to generate
 
 if __name__ == "__main__":
@@ -170,9 +156,8 @@ if __name__ == "__main__":
         
 	print(PATHsave)
 	
-	## Interval splitting + silence removal + spectrogram generation
+	## Interval splitting [+ silence removal] + spectrogram generation
 	# --------------------------------------------------------------------------
 	if proc=='all':
-	 
 	    split_and_spectrogram(PATH, PATHsave)
 	  

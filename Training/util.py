@@ -101,6 +101,19 @@ from sklearn.metrics import balanced_accuracy_score, accuracy_score, top_k_accur
 from sklearn.metrics import f1_score, fbeta_score
 from sklearn.metrics import roc_auc_score
 
+def test_check_data(true_classes, predIdxs_prob, LABELS):
+    print(bcolors.OKCYAN+ f'[INFO] {len(LABELS)} LABELS, {1+np.max(true_classes)} different true classes, {predIdxs_prob.shape[1]} network predictions' +bcolors.ENDC)
+    unique_true = np.unique(true_classes)
+    if np.max(unique_true) >= predIdxs_prob.shape[1]:
+        print(bcolors.FAIL + f'[ERROR] Found true class label {np.max(unique_true)} > model output dimension ({predIdxs_prob.shape[1]})' + bcolors.ENDC)
+        missing = [c for c in unique_true if c >= predIdxs_prob.shape[1]]
+        print(bcolors.FAIL + f'[ERROR] Missing model predictions for classes: {missing}' + bcolors.ENDC)
+        #raise ValueError("Mismatch between true classes and model output shape.")
+
+    if len(LABELS) != predIdxs_prob.shape[1]:
+        print(bcolors.WARNING + '[WARNING] Number of LABELS does not match model output classes.' + bcolors.ENDC)
+
+    
 def calculate_metrics(true_classes, predIdxs, predIdxs_prob):
     #print('Accuracy {:.2f}%'.format( 100*sum( (predIdxs.squeeze()==true_classes))/ true_classes.shape[0] ) ) 
     #acc = accuracy_score(true_classes, predIdxs)

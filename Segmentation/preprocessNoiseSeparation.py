@@ -28,10 +28,11 @@ import argparse
 # --------------------------------------------------------------------------
 
 # Si vamos a usar el espectrograma de BirdNet, mejor samplear a 48000 (con openAudioFile o indicandolo en librosa.load), 
-#  o si no perderemos las altas frecuencias del espectrograma
+#  en caso contrario perderemos las altas frecuencias del espectrograma
     
 from scipy.ndimage import binary_dilation, binary_erosion
 
+# Source of this code:
 #https://github.com/DeKUT-DSAIL/arm-dev-summit/blob/main/bioacoustics/baseline_models/audio_noise_separation.py
 
 #These functions get the indices corresponding to audio and noise in a file
@@ -135,15 +136,10 @@ def split_and_spectrogram(PATH, PATHsave):
                 y /= rms
             except RuntimeWarning:
                 continue  '''  
-            # Data augmentation (time domain) -> TO DO
            
             # Compute spectrogram
-            spec,_ = spectrogram(y,rate)# shape=(128,128)) #,shape=(NMEL,RESH))#[..., np.newaxis]  # cambiado
-            #spec = librosa.feature.melspectrogram(y=y, sr=rate, n_mels=224, hop_length=int(len(y) / (224 - 1)), fmin=BANDPASS_FMIN, fmax=BANDPASS_FMAX)
-            #spec = librosa.power_to_db(spec)
-            
-            # Data augmentation (frequency domain) -> TO DO
-        
+            spec,_ = spectrogram(y,rate)# shape=(128,128)) 
+
             # Save image
             try:
                 standardized_spec = (spec - np.min(spec)) / (np.max(spec) - np.min(spec)) 
@@ -190,7 +186,7 @@ if __name__ == "__main__":
         
 	print(PATHsave)
 	
-	## Interval splitting + silence removal + spectrogram generation
+	## Interval splitting [+ silence removal] + spectrogram generation
 	# --------------------------------------------------------------------------
 	if proc=='all':
 	 

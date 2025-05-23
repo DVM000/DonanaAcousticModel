@@ -117,7 +117,7 @@ def extract_audio_segments(PATH, LEN=3.0, save_path="segments"):
     # Convertir los picos a tiempos en segundos
     peak_times = time_rms[peaks]
     
-    # Graficar
+    # Figura
     plt.figure(figsize=(15, 6))
     plt.plot(time_rms, rms_db, label="RMS (dB)", alpha=0.7)
     plt.scatter(peak_times, rms_db[peaks], color='red', label="Picos detectados")
@@ -162,7 +162,7 @@ def split_and_spectrogram(PATH, PATHsave):
 	  
 	for i,f in enumerate(tqdm(listfiles)): 
     
-		if 1:
+		try:
 			# Open file
 			sig, rate = audio.openAudioFile(os.path.join(PATH,f), SAMPLE_RATE, offset=0, duration=FILE_SPLITTING_DURATION, fmin=BANDPASS_FMIN, fmax=BANDPASS_FMAX)
 			
@@ -202,16 +202,11 @@ def split_and_spectrogram(PATH, PATHsave):
 					y /= rms
 				except RuntimeWarning:
 					continue '''   
-			    	# Data augmentation (time domain) -> TO DO
 			
 			    	# Compute spectrogram
-				spec,_ = spectrogram(y,rate) #,shape=(NMEL,RESH))#[..., np.newaxis]  # cambiado
-				#spec = librosa.feature.melspectrogram(y=y, sr=rate, )#n_mels=224, hop_length=int(len(y) / (224 - 1)))
-				#spec = librosa.power_to_db(spec)
-			    	# Data augmentation (frequency domain) -> TO DO
-							
+				spec,_ = spectrogram(y,rate) #,shape=(128,128))
+			
 			    	# Save image
-			    	#standardized_spec = (spec - np.mean(spec)) / np.std(spec)
 				try:
 					standardized_spec = (spec - np.min(spec)) / (np.max(spec) - np.min(spec)) 
 				except RuntimeWarning:
@@ -222,7 +217,7 @@ def split_and_spectrogram(PATH, PATHsave):
 			    	#spec_image =  Image.fromarray(np.array([spec_array, spec_array, spec_array]).T) # image
 				spec_image.save("{}{}-{:03d}.png".format(PATHsave+'/',f.split('.')[0],i,len(peaks))) # '.png'))
 	    
-		if 0:#except:
+		except:
 			print(f"[Error] Cannot process audio file {os.path.join(PATH,f)}")  
 
 
@@ -257,6 +252,6 @@ if __name__ == "__main__":
         
 	print(PATHsave)
 	
-	## Interval splitting + silence removal + spectrogram generation
+	## Interval splitting [+ silence removal] + spectrogram generation
 	# --------------------------------------------------------------------------
 	split_and_spectrogram(PATH, PATHsave)

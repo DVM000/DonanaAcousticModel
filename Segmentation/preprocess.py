@@ -28,7 +28,7 @@ import argparse
 # --------------------------------------------------------------------------
 
 # Si vamos a usar el espectrograma de BirdNet, mejor samplear a 48000 (con openAudioFile o indicandolo en librosa.load), 
-#  o si no perderemos las altas frecuencias del espectrograma
+#  en caso contrario perderemos las altas frecuencias del espectrograma
     
 def silence_removal(x,top_db=60, frame_length=2048, hop_length=512):
   import librosa
@@ -86,7 +86,7 @@ def split_and_spectrogram(PATH, PATHsave, sufix=False):
            
             # Compute spectrogram
             # more than 64 filters give us: UserWarning: Empty filters detected in mel frequency basis. Some channels will produce empty responses. Try increasing your sampling rate (and fmax) or reducing n_mels.
-            spec,_ = spectrogram(y,rate, shape=(128,224))#shape=(64,384))# shape=(128,128)) #,shape=(NMEL,RESH))#[..., np.newaxis]  # cambiado
+            spec,_ = spectrogram(y,rate, shape=(128,224)) #shape=(64,384)) # shape=(128,128)) 
             
             # Other options:
             #spec = librosa.feature.melspectrogram(y=y, sr=rate, n_mels=224, hop_length=int(len(y) / (224 - 1)), fmin=BANDPASS_FMIN, fmax=BANDPASS_FMAX)
@@ -143,9 +143,8 @@ if __name__ == "__main__":
         
 	print(PATHsave)
 	
-	## Interval splitting + silence removal + spectrogram generation
+	## Interval splitting [+ silence removal] + spectrogram generation
 	# --------------------------------------------------------------------------
-	if proc=='all':
-	 
+	if proc=='all'
 	    split_and_spectrogram(PATH, PATHsave, sufix)
 	  

@@ -12,11 +12,12 @@ from tensorflow.keras.models import Model
 from scipy.special import softmax
 
 import matplotlib.pyplot as plt
+import pickle
 
-from  util import bcolors, check_GPU, plot_confusion_matrix, plot_classification_report, calculate_metrics, plot_ROC
+from  util import bcolors, check_GPU, plot_confusion_matrix, plot_classification_report, calculate_metrics, plot_ROC, test_check_data
 
 #  ---------------------- PARAMETERS ---------------------- #
-MODEL_PATH = "mobilenet_spectrogram-all305-d05.h5"
+MODEL_PATH = "mobilenet_spectrogram-all305-224.h5"
 
 TRAIN_IMAGE_DIR = "./tfm-external/less_classes/train/imgs/" # Ruta con subcarpetas de imagenes por cateogorias
 TEST_IMAGE_DIR = "./tfm-external/less_classes/test/imgs/" 
@@ -36,7 +37,9 @@ BATCH_SIZE = 32
 
 rescaling = 1.0 / 255.0  # Normalización
 
-#TH_CONF = 0.5  # Umbral de confianza mínima
+# Embeddings extracting or loading
+LOADpkl = False
+pklfile = 'prototypes-224.pkl'
 
 
 # ---------------------- LOAD TRAINED MODEL ---------------------- #
@@ -265,12 +268,8 @@ LABELS = sorted(os.listdir(TRAIN_IMAGE_DIR))
 print(f"Target categories {LABELS}")
 NUM_CLASSES = len(LABELS)
 
-# Embeddings extracting
-LOADpkl = False
 
-import pickle
-pklfile = 'prototypes.pkl'
-
+# Loading or saving prototype
 if not LOADpkl:
     print(f"Loading images and Computing prototypes...")
     prototypes, classes = compute_prototypes_classwise(feature_model, TRAIN_IMAGE_DIR, MAX_PER_CLASS, 1, LABELS)
@@ -389,6 +388,8 @@ predIdxs_prob = np.array(y_prob)
 
 #print(true_classes)
 #print(predIdxs)
+
+test_check_data(true_classes, predIdxs_prob, LABELS)
 
 plot_confusion_matrix(true_classes, predIdxs, LABELS, FIGNAME='confusion_matrix-FS.png')
 
