@@ -85,7 +85,7 @@ EPOCHS2 = 60 #150 #30
 
 if LOADmodel:
     FT_LR = 5e-3 
-    EPOCHS1 = 2
+    EPOCHS1 = 3
     EPOCHS2 = 0
     MIN_PER_CLASS = 1
     MAX_PER_CLASS = 500
@@ -505,7 +505,7 @@ sys.exit(0)  '''
 if LOADmodel:
     model = load_model(MODEL_PATH, custom_objects={"distillation_loss": distillation_loss, "custom_accuracy": custom_accuracy})
     base_model = model.layers[1] 
-    for layer in model.layers[:2]:
+    for layer in model.layers[:-2]: # freeze the whole model except for the last dense(+softmax) layer (just one layer)
         layer.trainable = False
 
   

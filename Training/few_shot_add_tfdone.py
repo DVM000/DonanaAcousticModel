@@ -27,7 +27,7 @@ print('In case of error do: export CUDA_VISIBLE_DEVICES=-1')
 
 #  ---------------------- PARAMETERS ---------------------- #
 MODEL_PATH = "mobilenet_spectrogram-all305-224.h5"
-#MODEL_PATH = "mobilenet_spectrogram-all305-128.h5"
+MODEL_PATH = "mobilenet_spectrogram-all305-128.h5"
 
 TRAIN_IMAGE_DIR = "./tfm-external/less_classes/nuevas/" # Ruta con subcarpetas de imagenes por cateogorias
 TEST_IMAGE_DIR = "./tfm-external/less_classes/test/imgs/" 
@@ -38,7 +38,7 @@ TEST_IMAGE_DIR = "./AUDIOSTFM/test_imgs/"
 MAX_PER_CLASS = 100 # maximum data to take of each category
 MIN_PER_CLASS = 1 # minimum data to take of each category
 
-IMG_HEIGHT = 224 #128 
+IMG_HEIGHT = 128 #128 
 IMG_WIDTH = IMG_HEIGHT 
 CHANNELS = 3
 
@@ -233,19 +233,29 @@ print('Using reconstruct={}'.format(REC))
 
 my_model_add.summary()
 
-
-# Note that our original trained 'model' does not contain softmax layer. Add it here for testing:
-softmax_layer = tf.keras.layers.Softmax()
-softmax_prob = softmax_layer(my_model_add.output) 
-softmaxmodel = tf.keras.models.Model(inputs=my_model_add.input, outputs=softmax_prob)
-
 # SAVE MODEL AS .h5: 
 SAVE_PATH = MODEL_PATH.replace('.h5','')+'-add.h5'
 #my_model_add.save( SAVE_PATH )
-softmaxmodel.save( SAVE_PATH )
+my_model_add.save( SAVE_PATH )
 print(bcolors.OKCYAN+ '[Info] SAVED AS ' + SAVE_PATH + bcolors.ENDC)
 
+
 sys.exit(0)
+
+# Note that our original trained 'model' does not contain softmax layer. Add it here for testing:
+#softmax_layer = tf.keras.layers.Softmax()
+#softmax_prob = softmax_layer(my_model_add.output) 
+#softmaxmodel = tf.keras.models.Model(inputs=my_model_add.input, outputs=softmax_prob)
+
+#a = model.predict(train_processed[:1,:,:,:])
+#print(np.max(a), np.sum(a))
+
+#b = my_model_add.predict(train_processed[:1,:,:,:])
+#print(np.max(b), np.sum(b))
+
+#c = softmaxmodel.predict(train_processed[:1,:,:,:])
+#print(np.max(c), np.sum(c))
+
 # ---------------------- TEST MODEL ---------------------- #
 print(f"Loading data...")
 test_image_files, test_hard_labels, LABELS = load_data(TEST_IMAGE_DIR)
