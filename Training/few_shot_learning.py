@@ -18,6 +18,7 @@ from  util import bcolors, check_GPU, plot_confusion_matrix, plot_classification
 
 #  ---------------------- PARAMETERS ---------------------- #
 MODEL_PATH = "mobilenet_spectrogram-all305-224.h5"
+#MODEL_PATH = "mobilenet_spectrogram-all305-128.h5"
 
 TRAIN_IMAGE_DIR = "./tfm-external/less_classes/train/imgs/" # Ruta con subcarpetas de imagenes por cateogorias
 TEST_IMAGE_DIR = "./tfm-external/less_classes/test/imgs/" 
@@ -29,8 +30,8 @@ TEST_IMAGE_DIR = "./AUDIOSTFM/test_imgs/"
 MAX_PER_CLASS = 100 # maximum data to take of each category
 MIN_PER_CLASS = 1 # minimum data to take of each category
 
-IMG_HEIGHT = 224 
-IMG_WIDTH = 224 
+IMG_HEIGHT = 224 #128
+IMG_WIDTH = IMG_HEIGHT
 CHANNELS = 3
 
 BATCH_SIZE = 32
@@ -40,7 +41,7 @@ rescaling = 1.0 / 255.0  # Normalización
 # Embeddings extracting or loading
 LOADpkl = False
 pklfile = 'prototypes-224.pkl'
-
+#pklfile = 'prototypes-128.pkl'
 
 # ---------------------- LOAD TRAINED MODEL ---------------------- #
 print(f"Loading model...")

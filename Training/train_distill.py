@@ -14,6 +14,7 @@ from tensorflow.keras.callbacks import ReduceLROnPlateau
 from sklearn.utils.class_weight import compute_class_weight
 import tqdm
 import random
+from tensorflow.keras.models import load_model
 
 from augmentdata import data_augmentation
 
@@ -24,7 +25,7 @@ from  util import bcolors, check_GPU, plot_confusion_matrix, plot_classification
 
 # ---------------------- PARAMETERS ---------------------- #
 
-TRAIN_IMAGE_DIR = "./tfm-external/birdnet-output_train/imgs/"  # Ruta con subcarpetas de imagenes por cateogorias
+TRAIN_IMAGE_DIR = "./tfm-external/birdnet-output_train/imgs/"  # Ruta con subcarpetas de imagenes por categorias
 TRAIN_NPY_DIR = "./tfm-external/birdnet-output_train//npy/"  # Ruta a archivos .npy de soft labels
 
 VAL_IMAGE_DIR = "./tfm-external/birdnet-output_val/imgs/"  
@@ -40,14 +41,6 @@ TRAIN_NPY_DIR = "./tfm-external/less_classes/train/npy/"
 VAL_NPY_DIR = "./tfm-external/less_classes/val/npy/"
 TEST_NPY_DIR = "./tfm-external/less_classes/test/npy/"
 
-# ALL
-TRAIN_IMAGE_DIR = "./AUDIOSTFM/train_imgs/" # todas las especies
-VAL_IMAGE_DIR = "./AUDIOSTFM/val_imgs/"
-TEST_IMAGE_DIR = "./AUDIOSTFM/test_imgs/"
-TRAIN_NPY_DIR = "./AUDIOSTFM/train_npy/npy/"
-VAL_NPY_DIR = "./AUDIOSTFM/val_npy/npy/"
-TEST_NPY_DIR = "./AUDIOSTFM/test_npy/npy/"
-
 # ABclasses
 '''
 TRAIN_IMAGE_DIR = "./AUDIOSTFM/ABclasses/train/" 
@@ -58,16 +51,25 @@ VAL_NPY_DIR = "./AUDIOSTFM/val_npy/npy/"
 TEST_NPY_DIR = ""
 '''
 
+# ALL
+TRAIN_IMAGE_DIR = "./AUDIOSTFM/train_imgs/" # todas las especies
+VAL_IMAGE_DIR = "./AUDIOSTFM/val_imgs/"
+TEST_IMAGE_DIR = "./AUDIOSTFM/test_imgs/"
+TRAIN_NPY_DIR = "./AUDIOSTFM/train_npy/npy/"
+VAL_NPY_DIR = "./AUDIOSTFM/val_npy/npy/"
+TEST_NPY_DIR = "./AUDIOSTFM/test_npy/npy/"
+
+
 LOADmodel = False
-modelfile = "mobilenet_spectrogram_distill-all305-add.h5"
+MODEL_PATH = "mobilenet_spectrogram-all305-128-add.h5"
 
 exp_sufix = '-prueba' # sufix for plot figures generated in this experiment
 
 MAX_PER_CLASS = 1000 # maximum data to take of each category
 MIN_PER_CLASS = 50 # minimum data to take of each category
 
-IMG_HEIGHT = 224  
-IMG_WIDTH = 224 
+IMG_HEIGHT = 224 #128
+IMG_WIDTH = IMG_HEIGHT
 CHANNELS = 3
 #NUM_CLASSES = 5 # obtained from Dataset
 BATCH_SIZE = 32
@@ -81,9 +83,20 @@ UNFREEZE = -1 # number of layers to unfreeze
 FT_LR = 5e-4  # fine-tune
 EPOCHS2 = 60 #150 #30
 
+if LOADmodel:
+    FT_LR = 5e-3 
+    EPOCHS1 = 2
+    EPOCHS2 = 0
+    MIN_PER_CLASS = 1
+    MAX_PER_CLASS = 500
+    
+    SELECTED_SPECIES_FILE = f'selected-species-model-add.txt'
+    with open(SELECTED_SPECIES_FILE, "r") as f:
+        LABELS_ORIG = [line.strip() for line in f] 
+    
 PATIENCE = 10 #15
 
-alpha = 0.5  #  0.5  # Peso de las hard labels en la mezcla (1-alpha = peso de soft labels)
+alpha = 1  #  0.5  # Peso de las hard labels en la mezcla (1-alpha = peso de soft labels)
 temperature = 2.0  # Parámetro para suavizar soft labels
 
 # Si alpha=1, no aplicamos distillation, no necesitamos las soft labels ni la funcion KL divergence y el entrenamiento es mas rapido
@@ -248,7 +261,7 @@ def load_and_preprocess_image(image_path, label, augment=False):
     
     # Pasar a tensor
     label = tf.convert_to_tensor(label, dtype=tf.float32)
-    #label.set_shape([num_classes])  # Establecer la forma explícitamente
+    #label.set_shape([num_classes])  # Establecer la forma 
     return image, label
 
 def parse_function(image_path, label, augment=False):
@@ -278,14 +291,18 @@ def parse_function_eval(image_path, label):
 # Cargar datos
 print(f"Loading data...")
 
-if alpha<1:
+if alpha<1 and not LOADmodel:
     train_image_files, train_soft_labels, train_hard_labels, LABELS = load_data(TRAIN_IMAGE_DIR, TRAIN_NPY_DIR, MAX_PER_CLASS, MIN_PER_CLASS)
     val_image_files, val_soft_labels, val_hard_labels, _ = load_data(VAL_IMAGE_DIR, VAL_NPY_DIR, int(MAX_PER_CLASS/2), 0, LABELS)
     print(train_image_files[:2])
-else:
+elif not LOADmodel:
     train_image_files, train_hard_labels, LABELS = load_data_nonpy(TRAIN_IMAGE_DIR, MAX_PER_CLASS, MIN_PER_CLASS)
     val_image_files, val_hard_labels, _ = load_data_nonpy(TRAIN_IMAGE_DIR, int(MAX_PER_CLASS/2), 0, LABELS)
-           
+
+if LOADmodel: # follow species-list
+    train_image_files, train_hard_labels, LABELS = load_data_nonpy(TRAIN_IMAGE_DIR, MAX_PER_CLASS, MIN_PER_CLASS, LABELS_ORIG)
+    val_image_files, val_hard_labels, _ = load_data_nonpy(VAL_IMAGE_DIR, int(MAX_PER_CLASS/2), 0, LABELS_ORIG)
+               
 print(f"Target categories {LABELS}")
 NUM_CLASSES = len(LABELS)
 
@@ -487,7 +504,10 @@ sys.exit(0)  '''
 
 if LOADmodel:
     model = load_model(MODEL_PATH, custom_objects={"distillation_loss": distillation_loss, "custom_accuracy": custom_accuracy})
-    base_model = model.layers[0] 
+    base_model = model.layers[1] 
+    for layer in model.layers[:2]:
+        layer.trainable = False
+
   
 # ---------------------- TRAIN MODEL ---------------------- #
 METRICS = [custom_accuracy] if alpha<1 else ['categorical_accuracy']
@@ -522,9 +542,12 @@ history = model.fit(train_dataset,
 for layer in model.layers:
     layer.trainable = True
     
-for layer in (model.layers[0]).layers[:-UNFREEZE]:#[:100]:
-    layer.trainable = False
-        
+try:
+    for layer in (model.layers[0]).layers[:-UNFREEZE]:#[:100]:
+        layer.trainable = False
+except:
+    print('Error when unfreezing layers')
+            
 model.summary()
 
 # Learning rate scheduler with Exponential decay:

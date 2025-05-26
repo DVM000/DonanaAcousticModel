@@ -253,7 +253,6 @@ Phoenicurus ochruros
 Phoenicurus phoenicurus
 Phylloscopus bonelli
 Phylloscopus collybita
-Phylloscopus collybita tristis
 Phylloscopus ibericus
 Phylloscopus inornatus
 Phylloscopus sibilatrix

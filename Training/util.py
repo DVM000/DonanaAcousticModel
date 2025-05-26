@@ -140,9 +140,9 @@ def calculate_metrics(true_classes, predIdxs, predIdxs_prob):
     print(f'F05-score (Macro): {f05:.4f}')
         
     auc = roc_auc_score(true_classes, predIdxs_prob, multi_class='ovr') # one-vs-rest
-    print(f"AUC one-vs-rest: {auc:.2f}")
+    print(f"AUC one-vs-rest: {auc:.4f}")
     auc = roc_auc_score(true_classes, predIdxs_prob, multi_class='ovo') # one-vs-one
-    print(f"AUC one-vs-one: {auc:.2f}")
+    print(f"AUC one-vs-one: {auc:.4f}")
       
     # Binarize labels for multi-class PR AUC
     y_true_bin = label_binarize(true_classes, classes=np.unique(true_classes).tolist())  # adjust classes as needed
