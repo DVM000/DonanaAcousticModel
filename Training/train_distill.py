@@ -59,6 +59,11 @@ TRAIN_NPY_DIR = "./AUDIOSTFM/train_npy/npy/"
 VAL_NPY_DIR = "./AUDIOSTFM/val_npy/npy/"
 TEST_NPY_DIR = "./AUDIOSTFM/test_npy/npy/"
 
+'''
+TRAIN_IMAGE_DIR = "/dataset/AUDIOS/TFM/ABclasses/train/" 
+VAL_IMAGE_DIR = "/dataset/AUDIOS/TFM/ABclasses/val/"
+TEST_IMAGE_DIR = "/dataset/AUDIOS/TFM/ABclasses/test/"
+'''
 
 LOADmodel = False
 MODEL_PATH = "../Models/mobilenet_spectrogram-all305-128-add.h5"
@@ -77,11 +82,11 @@ BATCH_SIZE = 32
 rescaling = 1.0 / 255.0  # Normalizacion
 
 INITIAL_LR = 5e-4 # 1st training
-EPOCHS1 = 1 #15 #5
+EPOCHS1 = 10 
 
 UNFREEZE = -1 # number of layers to unfreeze
 FT_LR = 5e-4  # fine-tune
-EPOCHS2 = 1 #150 #30
+EPOCHS2 = 60 #150
 
 if LOADmodel:
     FT_LR = 5e-3 
@@ -556,7 +561,7 @@ try:
     if steps_per_epoch == tf.data.INFINITE_CARDINALITY or steps_per_epoch == tf.data.UNKNOWN_CARDINALITY:
         raise ValueError("Unknown Cardinality")
 except:
-    steps_per_epoch = sum(1 for _ in dataset)
+    steps_per_epoch = sum(1 for _ in train_dataset)
     
 lr_schedule = keras.optimizers.schedules.ExponentialDecay(
     initial_learning_rate=FT_LR, decay_steps= steps_per_epoch * 2, decay_rate=0.96, staircase=True  # Reduce LR each 2 epochs

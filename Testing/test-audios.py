@@ -69,10 +69,10 @@ def model_loading(MODEL_PATH):
 
 
 def load_labels():
-    with open(f'birdnet_idx.json', 'r') as fp:
+    with open(f'../BirdNet/birdnet_idx.json', 'r') as fp:
         idx_dict = json.load(fp)
 
-    with open("selected-species-model-add.txt", "r") as f:
+    with open("../Models/selected-species-model-add.txt", "r") as f:
        LABELS = [line.strip() for line in f]
 
     print(f"Target categories {LABELS}")
@@ -240,8 +240,8 @@ MAX_LIMIT = 1000
 IMG_HEIGHT = 224
 IMG_WIDTH = 224
 rescaling = 1.0 / 255.0
-MODEL_PATH = "mobilenet_spectrogram-all305-224-add-ft.h5" #"mobilenet_spectrogram_distill11.h5"
-#MODEL_PATH = "mobilenet_spectrogram-all305-d05.h5" #"mobilenet_spectrogram_distill11.h5"
+MODEL_PATH = "../Models/mobilenet_spectrogram-all305-224-add-ft.h5" #"mobilenet_spectrogram_distill11.h5"
+#MODEL_PATH = "../Models/mobilenet_spectrogram-all305-d05.h5" #"mobilenet_spectrogram_distill11.h5"
 
 
 if __name__ == "__main__":
@@ -258,8 +258,8 @@ if __name__ == "__main__":
     PATHsave = args.o
     MIN_CONF = args.min_conf
 
-    if not os.path.exists(PATHsave):
-        os.makedirs(PATHsave)
+    #if not os.path.exists(PATHsave):
+    #    os.makedirs(PATHsave)
 
     print(PATHsave)
 
