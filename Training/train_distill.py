@@ -61,7 +61,7 @@ TEST_NPY_DIR = "./AUDIOSTFM/test_npy/npy/"
 
 
 LOADmodel = False
-MODEL_PATH = "mobilenet_spectrogram-all305-128-add.h5"
+MODEL_PATH = "../Models/mobilenet_spectrogram-all305-128-add.h5"
 
 exp_sufix = '-prueba' # sufix for plot figures generated in this experiment
 
@@ -77,11 +77,11 @@ BATCH_SIZE = 32
 rescaling = 1.0 / 255.0  # Normalizacion
 
 INITIAL_LR = 5e-4 # 1st training
-EPOCHS1 = 10 #15 #5
+EPOCHS1 = 1 #15 #5
 
 UNFREEZE = -1 # number of layers to unfreeze
 FT_LR = 5e-4  # fine-tune
-EPOCHS2 = 60 #150 #30
+EPOCHS2 = 1 #150 #30
 
 if LOADmodel:
     FT_LR = 5e-3 
@@ -90,7 +90,7 @@ if LOADmodel:
     MIN_PER_CLASS = 1
     MAX_PER_CLASS = 500
     
-    SELECTED_SPECIES_FILE = f'selected-species-model-add.txt'
+    SELECTED_SPECIES_FILE = f'../Models/selected-species-model-add.txt'
     with open(SELECTED_SPECIES_FILE, "r") as f:
         LABELS_ORIG = [line.strip() for line in f] 
     
@@ -101,7 +101,7 @@ temperature = 2.0  # Parámetro para suavizar soft labels
 
 # Si alpha=1, no aplicamos distillation, no necesitamos las soft labels ni la funcion KL divergence y el entrenamiento es mas rapido
 
-DICT_BIRDNET = f'birdnet_idx.json' # Diccionario con key: species, valor: indice en output BirdNET +1    
+DICT_BIRDNET = f'../BirdNet/birdnet_idx.json' # Diccionario con key: species, valor: indice en output BirdNET +1    
 
 # ---------------------- CHECK GPU AVAILABLE ---------------------- #
 gpus = check_GPU()
@@ -360,7 +360,7 @@ for l in LABELS:
 print(f"Selected indexes for our categories: {idx}")
 
 # Guardar la lista final de especies usadas para entrenar el modelo
-selected_species_file = f'selected-species-model{exp_sufix}.txt'
+selected_species_file = f'../Models/selected-species-model{exp_sufix}.txt'
 with open(selected_species_file, 'w') as f:
     for item in LABELS:
         f.write(item + "\n")
@@ -597,7 +597,7 @@ if alpha==1 and EPOCHS1 and EPOCHS2:
 	list(history.history['val_loss']) + list(history_fine.history['val_loss']), namefig=f'fig1-{exp_sufix}.png' )
 
 # ---------------------- TEST MODEL ---------------------- #
-model.save(f"mobilenet_spectrogram{exp_sufix}.h5")
+model.save(f"../Models/mobilenet_spectrogram{exp_sufix}.h5")
 print(bcolors.OKCYAN+'Saved as ' + f'mobilenet_spectrogram{exp_sufix}.h5' +bcolors.ENDC)
 
 #test_image_files, _, test_hard_labels, _ = load_data(TEST_IMAGE_DIR, TEST_NPY_DIR, LABELS)

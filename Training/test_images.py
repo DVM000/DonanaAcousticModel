@@ -13,7 +13,9 @@ from  util import bcolors, check_GPU, plot_confusion_matrix, plot_classification
 
 
 # ---------------------- PARAMETERS ---------------------- #
-MODEL_PATH = "mobilenet_spectrogram-all305-224-add.h5" # all305-add.h5
+MODEL_PATH = "../Models/mobilenet_spectrogram-all305-224.h5" 
+MODEL_PATH = "../Models/mobilenet_spectrogram-all305-224-add-ft.h5"
+#MODEL_PATH = "../Models/mobilenet_spectrogram-all305-128-add-ft.h5" 
 
 TEST_IMAGE_DIR = "./tfm-external/less_classes/test/imgs/" # Ruta con subcarpetas de imagenes por cateogorias
 TEST_NPY_DIR = "./tfm-external/less_classes/test/npy/"  # Ruta a archivos .npy de soft labels
@@ -23,8 +25,7 @@ TEST_IMAGE_DIR = "./AUDIOSTFM/test_imgs/"
 MAX_PER_CLASS = 1000 # maximum data to take of each category
 MIN_PER_CLASS = 50 # minimum data to take of each category
 
-IMG_HEIGHT = 224 
-#IMG_HEIGHT = 128
+IMG_HEIGHT = 224 #128 
 IMG_WIDTH = IMG_HEIGHT
 CHANNELS = 3
 
@@ -35,7 +36,8 @@ rescaling = 1.0 / 255.0  # Normalización
 #TH_CONF = 0.5  # Umbral de confianza minima
 
 # Solo testeamos en clases entrenadas por el modelo
-SELECTED_SPECIES_FILE = "selected-species-model-add.txt" # set to "" to take list of subdirectories
+SELECTED_SPECIES_FILE = "../Models/selected-species-model.txt" # set to "" to take list of subdirectories
+SELECTED_SPECIES_FILE = "../Models/selected-species-model-add.txt" # set to "" to take list of subdirectories
 #SELECTED_SPECIES_FILE = "" 
 
 exp_sufix = '-prueba' # sufix for plot figures generated in this experiment
@@ -256,7 +258,7 @@ plot_confusion_matrix(true_classes, predIdxs, LABELS, FIGNAME=f'confusion_matrix
 from sklearn.metrics import classification_report
 classificationReport = classification_report(true_classes, predIdxs, target_names=LABELS)
 print(classificationReport)
-plot_classification_report(classificationReport, topN=20, cmap='viridis', FIGNAME=f'classification-report-{exp_sufix}.png')
+plot_classification_report(classificationReport, topN=25, cmap='viridis', FIGNAME=f'classification-report-{exp_sufix}.png')
 
 
 calculate_metrics(true_classes, predIdxs, predIdxs_prob)

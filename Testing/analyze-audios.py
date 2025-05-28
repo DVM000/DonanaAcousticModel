@@ -22,6 +22,10 @@ log.basicConfig(format='[%(levelname)s] %(message)s', level=log.INFO)
 import warnings
 warnings.simplefilter("error", RuntimeWarning)
 
+import sys
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../Training'))
+sys.path.append(PROJECT_ROOT)
+
 import birdnet_util.audio as audio
 from birdnet_util.audio0 import spectrogram  # Importación de la función de espectrograma
 
@@ -62,10 +66,10 @@ def model_loading(MODEL_PATH):
     return model
 
 def load_labels():
-    with open(f'birdnet_idx.json', 'r') as fp:
+    with open(f'../BirdNet/birdnet_idx.json', 'r') as fp:
         idx_dict = json.load(fp)
 
-    with open("selected-species-model-add.txt", "r") as f:
+    with open("../Models/selected-species-model-add.txt", "r") as f:
        LABELS = [line.strip() for line in f]
 
     print(f"# Target categories: {len(LABELS)}")
@@ -160,7 +164,7 @@ MAX_LIMIT = 1000
 IMG_HEIGHT = 224
 IMG_WIDTH = 224
 rescaling = 1.0 / 255.0
-MODEL_PATH = "mobilenet_spectrogram-all305-224-add-ft.h5" 
+MODEL_PATH = "../Models/mobilenet_spectrogram-all305-224-add-ft.h5" 
 
 
 if __name__ == "__main__":
