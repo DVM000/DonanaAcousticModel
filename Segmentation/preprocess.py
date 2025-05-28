@@ -12,6 +12,9 @@ log.basicConfig(format='[%(levelname)s] %(message)s', level=log.INFO)
 import warnings
 warnings.simplefilter("error", RuntimeWarning)
 
+import sys
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../Training'))
+sys.path.append(PROJECT_ROOT)
 
 import birdnet_util.audio as audio
 from birdnet_util.audio0 import spectrogram #, spectrogram224
@@ -145,6 +148,6 @@ if __name__ == "__main__":
 	
 	## Interval splitting [+ silence removal] + spectrogram generation
 	# --------------------------------------------------------------------------
-	if proc=='all'
+	if proc=='all':
 	    split_and_spectrogram(PATH, PATHsave, sufix)
 	  

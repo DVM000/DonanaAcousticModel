@@ -17,6 +17,11 @@ from tqdm import tqdm
 from tensorflow.keras.models import load_model
 from collections import Counter
 import argparse
+import gc
+
+import sys
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../Training'))
+sys.path.append(PROJECT_ROOT)
 
 log.basicConfig(format='[%(levelname)s] %(message)s', level=log.INFO)
 import warnings
@@ -67,7 +72,7 @@ def load_labels():
     with open(f'birdnet_idx.json', 'r') as fp:
         idx_dict = json.load(fp)
 
-    with open("selected-species-model-all305.txt", "r") as f:
+    with open("selected-species-model-add.txt", "r") as f:
        LABELS = [line.strip() for line in f]
 
     print(f"Target categories {LABELS}")
@@ -103,18 +108,17 @@ def file_level_metrics(file_preds, file_true):
     FN = 0
 
     for pred, truth in zip(file_preds, file_true):
-        if truth & pred:
-            TP += 1
-        else:
-            FN += 1
-        FP += len(pred - truth)
+        TP += len(truth & pred) # existe interseccion: TP
+        FN += len(truth - pred) # no se predice: FN
+        FP += len(pred - truth) # cuantas clases predichas no son el ground truth
 
     precision = TP / (TP + FP) if TP + FP > 0 else 0.0
     recall = TP / (TP + FN) if TP + FN > 0 else 0.0
 
     return precision, recall, TP, FP, FN  
     
-def analyze_all(ROOT_PATH, model, LABELS, filename='predictions.txt'):
+    
+def analyze_all(ROOT_PATH, model, LABELS, MIN_CONF, filename='predictions.txt', MAX_SEGMENTS=1000):
 
     fopen = open(filename,'w')
     
@@ -124,7 +128,7 @@ def analyze_all(ROOT_PATH, model, LABELS, filename='predictions.txt'):
     file_level_preds = []
     file_level_true = []
 
-    for class_dir in sorted(os.listdir(ROOT_PATH))[:-1][:5]:
+    for class_dir in sorted(os.listdir(ROOT_PATH)):
         class_path = os.path.join(ROOT_PATH, class_dir)
         if not os.path.isdir(class_path):
             continue  # Saltar archivos 
@@ -140,7 +144,7 @@ def analyze_all(ROOT_PATH, model, LABELS, filename='predictions.txt'):
 
         print(f"\n{class_dir}:", file=fopen)
         
-        for f in tqdm(listfiles[:5]):
+        for f in tqdm(listfiles):
             full_path = os.path.join(class_path, f)
             chunk_preds = []
             chunk_probs = []
@@ -150,7 +154,7 @@ def analyze_all(ROOT_PATH, model, LABELS, filename='predictions.txt'):
                 sig, rate = audio.openAudioFile(full_path, SAMPLE_RATE, offset=0, duration=FILE_SPLITTING_DURATION, fmin=BANDPASS_FMIN, fmax=BANDPASS_FMAX)
                 chunks = audio.splitSignal(sig, rate, SIG_LENGTH, SIG_OVERLAP, SIG_MINLEN)
 
-                for interval, y in enumerate(chunks):
+                for interval, y in enumerate(chunks[:20]):
                     spec, _ = spectrogram(y, rate, shape=(128, 224))
                     try:
                         standardized_spec = (spec - np.min(spec)) / (np.max(spec) - np.min(spec)) 
@@ -170,10 +174,14 @@ def analyze_all(ROOT_PATH, model, LABELS, filename='predictions.txt'):
                     # Model inference
                     predictions = model.predict(img, verbose=False)
                     predicted_class = np.argmax(predictions)
+                    #print(np.max(predictions), np.sum(predictions)) # check softmax
              
                     # Obtener etiqueta real a partir del nombre del archivo o directorio
                     #true_class = LABELS.index(PATH.split("/")[-2])  # Ajustar según convención de nombres
                     #y_true.append(0) #true_class)
+                    
+                    del img, spec_array, spec, standardized_spec
+                    gc.collect()
                 
                     #y_pred.append(predicted_class)
                     print_preds[f"{interval*SIG_LENGTH}-{(interval+1)*SIG_LENGTH}"] = predictions
@@ -187,7 +195,7 @@ def analyze_all(ROOT_PATH, model, LABELS, filename='predictions.txt'):
 
                 # Mostrar las predicciones filtradas
                 if filtered_predictions:
-                    print(f"Predictions for {f}:", file=fopen)
+                    print(f"Predictions for {class_dir}/{f}:", file=fopen)
                     for k, p_c in filtered_predictions.items():
                         predicted_class, confidence = p_c 
                         try:     print(f"{k.split('-')[0]}\t{k.split('-')[1]}\t{LABELS[predicted_class]}\t{confidence:.2f}\t{f}", file=fopen)
@@ -198,19 +206,22 @@ def analyze_all(ROOT_PATH, model, LABELS, filename='predictions.txt'):
                 # Determinar clase mayoritaria
                 if chunk_preds:
                     most_common_pred = Counter(chunk_preds).most_common(1)[0][0]
-                    y_pred.append(most_common_pred)
-                    y_true.append(true_class_idx)
+                    #y_pred.append(most_common_pred)
+                    #y_true.append(true_class_idx)
                     
                     # Media de probabilidades como representación final
                     mean_probs = np.mean(chunk_probs, axis=0)
-                    y_probs.append(mean_probs)
+                    #y_probs.append(mean_probs)
                     
                     # Todas las predicciones a nivel de recording
-                    file_level_preds.append(set(chunk_preds))
+                    #file_level_preds.append(set([most_common_pred])) # solo guardamos la prediccion mas frecuente
+                    file_level_preds.append(set(chunk_preds))        # guardamos todas las predicciones del fichero
                     file_level_true.append(set([true_class_idx]))
 
             else:#except Exception as e:
-                print(f"[Error] Cannot process audio file {os.path.join(PATH, f)}: {e}")
+                print(f"[Error] Cannot process audio file {os.path.join(PATH, f)}: {e}")  
+                
+            #print(file_level_preds, true_class_idx)
         
     print(bcolors.OKCYAN+ f"Saved results into {filename}"+bcolors.ENDC)
     return y_true, y_pred, y_probs, file_level_preds, file_level_true
@@ -219,7 +230,7 @@ def analyze_all(ROOT_PATH, model, LABELS, filename='predictions.txt'):
     
 # ---------------------- Parameters ---------------------- #
 SAMPLE_RATE = 48000
-FILE_SPLITTING_DURATION = 600
+FILE_SPLITTING_DURATION = 60
 BANDPASS_FMIN = 0
 BANDPASS_FMAX = 15000
 SIG_LENGTH = 3.0
@@ -229,9 +240,9 @@ MAX_LIMIT = 1000
 IMG_HEIGHT = 224
 IMG_WIDTH = 224
 rescaling = 1.0 / 255.0
-MODEL_PATH = "mobilenet_spectrogram_distill-all305.h5" #"mobilenet_spectrogram_distill11.h5"
-MODEL_PATH = "mobilenet_spectrogram-all305-d05.h5" #"mobilenet_spectrogram_distill11.h5"
-MIN_CONF = 0.5
+MODEL_PATH = "mobilenet_spectrogram-all305-224-add-ft.h5" #"mobilenet_spectrogram_distill11.h5"
+#MODEL_PATH = "mobilenet_spectrogram-all305-d05.h5" #"mobilenet_spectrogram_distill11.h5"
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -239,12 +250,13 @@ if __name__ == "__main__":
     #parser.add_argument("--i", help="Input data", action="store", default='/media/delia/External\ HD/TFM/birdnet-output_train/segments/')
     parser.add_argument("--i", help="Input data", action="store", default='/media/delia/HDD/dataset/AUDIOS/TFM/WABAD/DATA_WABAD/DATA/')
     parser.add_argument("--o", help="Output file", action="store", default='predictions.txt')
-    #parser.add_argument("--min_conf", help="confidence threshold", action="store", default=0.5, type=float)
+    parser.add_argument("--min_conf", help="confidence threshold", action="store", default=0.5, type=float)
     #parser.add_argument("--gt", help="Ground truth", action="store", default="Falco naumanni")
     args = parser.parse_args()
     
     PATH = args.i
     PATHsave = args.o
+    MIN_CONF = args.min_conf
 
     if not os.path.exists(PATHsave):
         os.makedirs(PATHsave)
@@ -264,11 +276,11 @@ if __name__ == "__main__":
     print(f"Accuracy: {np.sum(np.array(y_pred)==y_true)/len(y_pred):.2f}")'''
 
     
-    y_true, y_pred, y_probs, file_preds, file_true = analyze_all(PATH, model, LABELS, filename=PATHsave)
-    plot_confusion_matrix(y_true, y_pred, LABELS, FIGNAME='confusion-audios.png')
+    y_true, y_pred, y_probs, file_preds, file_true = analyze_all(PATH, model, LABELS, MIN_CONF, filename=PATHsave)
+    '''plot_confusion_matrix(y_true, y_pred, LABELS, FIGNAME='confusion-audios.png')
 
     acc = np.sum(np.array(y_true) == np.array(y_pred)) / len(y_pred)
-    print(f"Accuracy total: {acc:.2f}")
+    print(f"Accuracy total: {acc:.4f}")
     
     # Accuracy metrics
     y_true_arr = np.array(y_true)
@@ -277,13 +289,13 @@ if __name__ == "__main__":
     top1_acc = accuracy_score(y_true_arr, np.argmax(y_probs_arr, axis=1))
     top5_acc = top_k_accuracy_score(y_true_arr, y_probs_arr, k=5, labels=np.arange(y_probs_arr.shape[1]))
 
-    print(f"Top-1 Accuracy: {top1_acc:.2f}")
-    print(f"Top-5 Accuracy: {top5_acc:.2f}")
+    print(f"Top-1 Accuracy: {top1_acc:.4f}")
+    print(f"Top-5 Accuracy: {top5_acc:.4f}")'''
     
     # Métricas a nivel de fichero
     precision, recall, TP, FP, FN = file_level_metrics(file_preds, file_true)
 
-    print(f"\n[RECORDING-LEVEL] Precision: {precision:.2f} | Recall: {recall:.2f}")
+    print(f"\n[RECORDING-LEVEL] Precision: {precision:.4f} | Recall: {recall:.4f}")
     print(f"[RECORDING-LEVEL] TP: {TP}  FP: {FP}  FN: {FN}")
 
 
