@@ -22,6 +22,8 @@ Adapted BirdNET scripts for running species classification and segmentation on r
 - `execute_birdnet_segment_save.py.`: script for automatically running the BirdNET analysis + segmentation on subfolders. This provides
  BirdNET .txt tables, BirdNET's prediction logits, and extracted segments.
 
+<img src="Data/birdnet_files.png" width="400">
+
 ### Training
 
 Scripts for training DNN models on the spectrogram dataset.
@@ -44,3 +46,15 @@ Species list employed in this work.
 Example execution (see example prediction file `example-predictions.txt`):
 
 ```python analyze-audios.py --i <audiofolder> --o <predictionsfolder> --min_conf 0.5```
+
+
+```
+cat example-predictions.txt 
+0.0	3.0	Bubo bubo	1.00	113954.mp3
+6.0	9.0	Bubo bubo	1.00	113954.mp3
+12.0	15.0	Ardea cinerea	0.97	113954.mp3
+15.0	18.0	Bubo bubo	1.00	113954.mp3
+21.0	24.0	Bubo bubo	1.00	113954.mp3
+27.0	30.0	Bubo bubo	1.00	113954.mp3
+30.0	33.0	Bubo bubo	1.00	113954.mp3
+33.0	36.0	Ardea cinerea	0.59	113954.mp3``
