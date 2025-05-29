@@ -66,8 +66,8 @@ def model_loading(MODEL_PATH):
     return model
 
 def load_labels():
-    with open(f'../BirdNet/birdnet_idx.json', 'r') as fp:
-        idx_dict = json.load(fp)
+    #with open(f'../BirdNet/birdnet_idx.json', 'r') as fp:
+    #    idx_dict = json.load(fp)
 
     with open("../Models/selected-species-model-add.txt", "r") as f:
        LABELS = [line.strip() for line in f]
@@ -131,17 +131,18 @@ def analyze_folder(INPUT_PATH, OUTPUT_PATH, model, LABELS, MIN_CONF, filename='p
                 # Model inference
                 predictions = model.predict(img, verbose=False)
                 predicted_class = np.argmax(predictions)
+                #print(predicted_class, LABELS[predicted_class], np.max(predictions))
           
-                print_preds[f"{interval*SIG_LENGTH}-{(interval+1)*SIG_LENGTH}"] = (predicted_class, np.max(predictions))
-
-                # Mostrar las predicciones filtradas
-                filtered_predictions = apply_confidence_threshold(print_preds, MIN_CONF)
-                
-                with open(output_path, 'w') as out_f:
-                    for k, p_c in filtered_predictions.items():
-                        predicted_class, confidence = p_c
-                        label = LABELS[predicted_class] if predicted_class < len(LABELS) else f"class_{pred_class}"
-                        out_f.write(f"{k.split('-')[0]}\t{k.split('-')[1]}\t{LABELS[predicted_class]}\t{confidence:.2f}\t{f}\n")
+                print_preds[f"{interval*SIG_LENGTH}-{(interval+1)*SIG_LENGTH}"] = predictions
+                      
+            # Mostrar las predicciones filtradas
+            filtered_predictions = apply_confidence_threshold(print_preds, MIN_CONF)
+            #print(filtered_predictions)
+            with open(output_path, 'w') as out_f:
+                for k, p_c in filtered_predictions.items():
+                    predicted_class, confidence = p_c
+                    label = LABELS[predicted_class] if predicted_class < len(LABELS) else f"class_{pred_class}"
+                    out_f.write(f"{k.split('-')[0]}\t{k.split('-')[1]}\t{LABELS[predicted_class]}\t{confidence:.2f}\t{f}\n")
                 
         else: #except Exception as e:
             print(f"[Error] Cannot process audio file {os.path.join(INPUT_PATH, f)}: {e}")
@@ -184,6 +185,7 @@ if __name__ == "__main__":
 
     model = model_loading(MODEL_PATH)
     LABELS = load_labels()
+    print(LABELS)
     
     analyze_folder(INPUT_PATH, OUTPUT_PATH, model, LABELS, MIN_CONF)
 
