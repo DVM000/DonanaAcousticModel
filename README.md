@@ -11,7 +11,7 @@ Scripts for segmenting audio files into fixed-length chunks and converting them 
 
 - `preprocess.py`: main script to split audio and generate spectrograms.
 
-![preprocessing image](Data/pre-processing.png)
+<img src="Data/pre-processing.png" width="600">
 
 
 ### BirdNet
