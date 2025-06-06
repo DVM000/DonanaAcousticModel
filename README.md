@@ -50,11 +50,7 @@ Example execution (see example prediction file `example-predictions.txt`):
 
 ```
 cat example-predictions.txt 
-0.0	3.0	Bubo bubo	1.00	113954.mp3
-6.0	9.0	Bubo bubo	1.00	113954.mp3
-12.0	15.0	Ardea cinerea	0.97	113954.mp3
-15.0	18.0	Bubo bubo	1.00	113954.mp3
-21.0	24.0	Bubo bubo	1.00	113954.mp3
-27.0	30.0	Bubo bubo	1.00	113954.mp3
-30.0	33.0	Bubo bubo	1.00	113954.mp3
-33.0	36.0	Ardea cinerea	0.59	113954.mp3``
+0.0     3.0     Bubo bubo       1.00    113954.mp3
+6.0     9.0     Bubo bubo       1.00    113954.mp3
+12.0    15.0    Ardea cinerea   0.97    113954.mp3
+15.0    18.0    Bubo bubo       1.00    113954.mp3```
