@@ -54,3 +54,10 @@ cat example-predictions.txt
 6.0     9.0     Bubo bubo       1.00    113954.mp3
 12.0    15.0    Ardea cinerea   0.97    113954.mp3
 15.0    18.0    Bubo bubo       1.00    113954.mp3```
+
+### Embedded inference
+
+- `analyze-audios-tflite.py`: end-to-end utility to load a trained model in TensorFLow Lite format, producing classification results.
+
+Same prediction file is produced (`example-predictions.txt`)
+
