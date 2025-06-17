@@ -53,7 +53,8 @@ cat example-predictions.txt
 0.0     3.0     Bubo bubo       1.00    113954.mp3
 6.0     9.0     Bubo bubo       1.00    113954.mp3
 12.0    15.0    Ardea cinerea   0.97    113954.mp3
-15.0    18.0    Bubo bubo       1.00    113954.mp3```
+15.0    18.0    Bubo bubo       1.00    113954.mp3
+```
 
 ### Embedded inference
 
