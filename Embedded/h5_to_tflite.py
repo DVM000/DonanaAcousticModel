@@ -37,6 +37,7 @@ def model_loading(MODEL_PATH):
 
 MODEL_PATH = "../Models/mobilenet_spectrogram-all305-224-add-ft.h5" 
 OUT_MODEL = MODEL_PATH.replace('.h5', '.tflite')
+OUT_MODEL_QUANT = OUT_MODEL.replace('.tflite','-q.tflite')
 
 model = model_loading(MODEL_PATH)
 converter = lite.TFLiteConverter.from_keras_model(model)
@@ -47,3 +48,13 @@ with open(OUT_MODEL, 'wb') as f:
     f.write(tflite_model)
         
 print('[INFO] Model saved as ' + OUT_MODEL )
+
+# Cuantize the model --
+converter = lite.TFLiteConverter.from_keras_model(model)
+converter.optimizations = [lite.Optimize.DEFAULT]           # post-training dynamic range quantization
+tflite_model = converter.convert()
+
+with open(OUT_MODEL_QUANT, 'wb') as f:
+    f.write(tflite_model)
+        
+print('[INFO] Model saved as ' + OUT_MODEL_QUANT )
