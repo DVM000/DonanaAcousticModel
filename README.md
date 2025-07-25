@@ -33,7 +33,7 @@ Scripts for training DNN models on the spectrogram dataset.
 
 ### Models
 
-Output folder with trained models. Model names follow this notation: `<CNN>-<resolution>-<n_labels>-<extra>`, where `wi` stands for weight imprinting, `ft` for fine-tuning and `q` for *quantized*. 
+Output folder with trained models. Model names follow this notation: `<CNN>-<resolution>-<n_labels>-<extra>`, where `wi` stands for *weight imprinting*, `ft` for *fine-tuning* and `q` for *quantized*. 
 
 ### Data
 
@@ -61,4 +61,8 @@ cat example-predictions.txt
 - `analyze-audios-tflite.py`: end-to-end utility to load a trained model in TensorFLow Lite format, producing classification results.
 
 Same prediction file is produced (`example-predictions.txt`)
+
+### Notebooks
+
+- `example-analyze-tflite.ipynb`: example of loading a trained model and evaluate it an audio file, showing classification results.
 
