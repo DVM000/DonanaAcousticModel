@@ -26,8 +26,8 @@ print('successfully imported')
 print('In case of error do: export CUDA_VISIBLE_DEVICES=-1')
 
 #  ---------------------- PARAMETERS ---------------------- #
-MODEL_PATH = "mobilenet_spectrogram-all305-224.h5"
-MODEL_PATH = "mobilenet_spectrogram-all305-128.h5"
+MODEL_PATH = "mobilenet-224-305.h5"
+MODEL_PATH = "mobilenet-128-305.h5"
 
 TRAIN_IMAGE_DIR = "./tfm-external/less_classes/nuevas/" # Ruta con subcarpetas de imagenes por cateogorias
 TEST_IMAGE_DIR = "./tfm-external/less_classes/test/imgs/" 
@@ -210,12 +210,12 @@ print(f"Target categories {LABELS}")
 NUM_CLASSES = len(LABELS)
 
 # Guardar la lista final de especies usadas para entrenar el modelo
-SELECTED_SPECIES_FILE = f'selected-species-model.txt'
+SELECTED_SPECIES_FILE = f'species-list-305.txt'
 with open(SELECTED_SPECIES_FILE, "r") as f:
      LABELS_ORIG = [line.strip() for line in f]
 
 ALL_LABELS = LABELS_ORIG + LABELS
-selected_species_file2 = f'selected-species-model-add.txt'
+selected_species_file2 = f'species-list-model-add.txt'
 with open(selected_species_file2, 'w') as f:
     for item in ALL_LABELS:
         f.write(item + "\n")

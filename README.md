@@ -33,7 +33,7 @@ Scripts for training DNN models on the spectrogram dataset.
 
 ### Models
 
-Output folder with trained models.
+Output folder with trained models. Model names follow this notation: `<CNN>-<resolution>-<n_labels>-<extra>`, where `wi` stands for weight imprinting, `ft` for fine-tuning and `q` for *quantized*. 
 
 ### Data
 

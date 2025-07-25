@@ -66,7 +66,7 @@ TEST_IMAGE_DIR = "/dataset/AUDIOS/TFM/ABclasses/test/"
 '''
 
 LOADmodel = False
-MODEL_PATH = "../Models/mobilenet_spectrogram-all305-128-add.h5"
+MODEL_PATH = "../Models/mobilenet-224-337wi.h5"
 
 exp_sufix = '-prueba' # sufix for plot figures generated in this experiment
 
@@ -95,7 +95,7 @@ if LOADmodel:
     MIN_PER_CLASS = 1
     MAX_PER_CLASS = 500
     
-    SELECTED_SPECIES_FILE = f'../Models/selected-species-model-add.txt'
+    SELECTED_SPECIES_FILE = f'../Models/species-list-337.txt'
     with open(SELECTED_SPECIES_FILE, "r") as f:
         LABELS_ORIG = [line.strip() for line in f] 
     
@@ -302,7 +302,7 @@ if alpha<1 and not LOADmodel:
     print(train_image_files[:2])
 elif not LOADmodel:
     train_image_files, train_hard_labels, LABELS = load_data_nonpy(TRAIN_IMAGE_DIR, MAX_PER_CLASS, MIN_PER_CLASS)
-    val_image_files, val_hard_labels, _ = load_data_nonpy(TRAIN_IMAGE_DIR, int(MAX_PER_CLASS/2), 0, LABELS)
+    val_image_files, val_hard_labels, _ = load_data_nonpy(VAL_IMAGE_DIR, int(MAX_PER_CLASS/2), 0, LABELS)
 
 if LOADmodel: # follow species-list
     train_image_files, train_hard_labels, LABELS = load_data_nonpy(TRAIN_IMAGE_DIR, MAX_PER_CLASS, MIN_PER_CLASS, LABELS_ORIG)
@@ -365,7 +365,7 @@ for l in LABELS:
 print(f"Selected indexes for our categories: {idx}")
 
 # Guardar la lista final de especies usadas para entrenar el modelo
-selected_species_file = f'../Models/selected-species-model{exp_sufix}.txt'
+selected_species_file = f'../Models/species-list-model{exp_sufix}.txt'
 with open(selected_species_file, 'w') as f:
     for item in LABELS:
         f.write(item + "\n")
@@ -602,8 +602,8 @@ if alpha==1 and EPOCHS1 and EPOCHS2:
 	list(history.history['val_loss']) + list(history_fine.history['val_loss']), namefig=f'fig1-{exp_sufix}.png' )
 
 # ---------------------- TEST MODEL ---------------------- #
-model.save(f"../Models/mobilenet_spectrogram{exp_sufix}.h5")
-print(bcolors.OKCYAN+'Saved as ' + f'mobilenet_spectrogram{exp_sufix}.h5' +bcolors.ENDC)
+model.save(f"../Models/mobilenet-{exp_sufix}.h5")
+print(bcolors.OKCYAN+'Saved as ' + f'mobilenet-{exp_sufix}.h5' +bcolors.ENDC)
 
 #test_image_files, _, test_hard_labels, _ = load_data(TEST_IMAGE_DIR, TEST_NPY_DIR, LABELS)
 test_image_files, test_hard_labels, _ = load_data_nonpy(TEST_IMAGE_DIR, MAX_PER_CLASS, 0, LABELS)

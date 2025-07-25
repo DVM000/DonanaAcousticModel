@@ -17,8 +17,8 @@ import pickle
 from  util import bcolors, check_GPU, plot_confusion_matrix, plot_classification_report, calculate_metrics, plot_ROC, test_check_data
 
 #  ---------------------- PARAMETERS ---------------------- #
-MODEL_PATH = "mobilenet_spectrogram-all305-224.h5"
-#MODEL_PATH = "mobilenet_spectrogram-all305-128.h5"
+MODEL_PATH = "mobilenet-224-305.h5"
+#MODEL_PATH = "mobilenet-128-305.h5"
 
 TRAIN_IMAGE_DIR = "./tfm-external/less_classes/train/imgs/" # Ruta con subcarpetas de imagenes por cateogorias
 TEST_IMAGE_DIR = "./tfm-external/less_classes/test/imgs/" 
@@ -226,7 +226,7 @@ train_processed = load_and_preprocess_list_of_images(train_image_files);
 print(bcolors.OKCYAN+ 'train_images_processed shape (num_images, height, width, channels) = {}'.format(train_processed.shape) +bcolors.ENDC)
      
 # ---------------------- LABELS ---------------------- # 
-#with open("selected-species-model.txt", "r") as f:
+#with open("species-list-305.txt", "r") as f:
 #   LABELS = [line.strip() for line in f]
 #print(LABELS)
 

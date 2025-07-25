@@ -35,7 +35,7 @@ def model_loading(MODEL_PATH):
     return model
 
 
-MODEL_PATH = "../Models/mobilenet_spectrogram-all305-224-add-ft.h5" 
+MODEL_PATH = "../Models/mobilenet-224-337wi-ft.h5" 
 OUT_MODEL = MODEL_PATH.replace('.h5', '.tflite')
 OUT_MODEL_QUANT = OUT_MODEL.replace('.tflite','-q.tflite')
 

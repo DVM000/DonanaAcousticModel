@@ -44,7 +44,7 @@ def load_labels():
     #with open(f'../BirdNet/birdnet_idx.json', 'r') as fp:
     #    idx_dict = json.load(fp)
 
-    with open("../Models/selected-species-model-add.txt", "r") as f:
+    with open("../Models/species-list-337.txt", "r") as f:
        LABELS = [line.strip() for line in f]
 
     print(f"# Target categories: {len(LABELS)}")
@@ -156,7 +156,7 @@ MAX_LIMIT = 1000
 IMG_HEIGHT = 224
 IMG_WIDTH = 224
 rescaling = 1.0 / 255.0
-MODEL_PATH = "../Models/mobilenet_spectrogram-all305-224-add-ft.tflite" 
+MODEL_PATH = "../Models/mobilenet-224-337wi-ft.tflite" 
 TFLITE_THREADS = max(1, multiprocessing.cpu_count() // 2)
 
 if __name__ == "__main__":

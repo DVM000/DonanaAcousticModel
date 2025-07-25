@@ -36,8 +36,8 @@ rescaling = 1.0 / 255.0  # Normalización
 #TH_CONF = 0.5  # Umbral de confianza minima
 
 # Solo testeamos en clases entrenadas por el modelo
-SELECTED_SPECIES_FILE = "../Models/selected-species-model.txt" # set to "" to take list of subdirectories
-SELECTED_SPECIES_FILE = "../Models/selected-species-model-add.txt" # set to "" to take list of subdirectories
+SELECTED_SPECIES_FILE = "../Models/species-list-305.txt" # set to "" to take list of subdirectories
+SELECTED_SPECIES_FILE = "../Models/species-list-337.txt" # set to "" to take list of subdirectories
 #SELECTED_SPECIES_FILE = "" 
 
 exp_sufix = '-prueba' # sufix for plot figures generated in this experiment
