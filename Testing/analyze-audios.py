@@ -23,7 +23,7 @@ import warnings
 warnings.simplefilter("error", RuntimeWarning)
 
 import sys
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../Training'))
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../util'))
 sys.path.append(PROJECT_ROOT)
 
 import birdnet_util.audio as audio
