@@ -65,11 +65,8 @@ def model_loading(MODEL_PATH):
     #model.summary()
     return model
 
-def load_labels():
-    #with open(f'../BirdNet/birdnet_idx.json', 'r') as fp:
-    #    idx_dict = json.load(fp)
-
-    with open("../Models/species-list-337.txt", "r") as f:
+def load_labels(LABEL_FILE):
+    with open(LABEL_FILE, "r") as f:
        LABELS = [line.strip() for line in f]
 
     print(f"# Target categories: {len(LABELS)}")
@@ -166,7 +163,7 @@ IMG_HEIGHT = 224
 IMG_WIDTH = 224
 rescaling = 1.0 / 255.0
 MODEL_PATH = "../Models/mobilenet-224-337wi-ft.h5" 
-
+LABEL_FILE = "../Models/species-list-337.txt"
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -184,7 +181,7 @@ if __name__ == "__main__":
 
 
     model = model_loading(MODEL_PATH)
-    LABELS = load_labels()
+    LABELS = load_labels(LABEL_FILE)
     print(LABELS)
     
     analyze_folder(INPUT_PATH, OUTPUT_PATH, model, LABELS, MIN_CONF)

@@ -1,3 +1,0 @@
-https://github.com/kahst/BirdNET-Analyzer/birdnet_analyzer/
-https://github.com/kahst/BirdNET/blob/master/utils/audio.py --> audio0.py (changes marked with 'DVM')
-
