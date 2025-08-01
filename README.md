@@ -1,29 +1,10 @@
 # DonanaAcousticModel
 
-Python scripts for training bird species classification models from audio recordings. This work is focused on species frequently observed in the Doñana Biological Reserve (Spain).
-
-
-## Code
-
-### Segmentation
-
-Scripts for segmenting audio files into fixed-length chunks and converting them into spectrograms. Supports multiple segmentation and spectrogram generation methods.
-
-- `preprocess.py`: main script to split audio and generate spectrograms.
-
-<img src="Data/pre-processing.png" width="600">
-
-
-### BirdNet
-
-Adapted BirdNET scripts for running species classification and segmentation on raw audio.
-
-- `setup_birdnet.py`: script to install the employed version of BirdNET.
-- `execute_birdnet_segment_save.py.`: script for automatically running the BirdNET analysis + segmentation on subfolders. This provides
- BirdNET .txt tables, BirdNET's prediction logits, and extracted segments.
+Python scripts for bird species classification from audio recordings. This work is focused on species frequently observed in the Doñana Biological Reserve (Spain).
 
 <img src="Data/birdnet_files.png" width="400">
 
+## Code
 
 ### Models
 
