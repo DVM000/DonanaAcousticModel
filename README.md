@@ -1,8 +1,9 @@
 # DonanaAcousticModel
 
-Python scripts for bird species classification from audio recordings. This work is focused on species frequently observed in the Doñana Biological Reserve (Spain).
+Python scripts for bird species classification from audio recordings. This work is focused on species frequently observed in the Doñana Biological Reserve (Spain) - available [here](Data/SpeciesList.txt).
 
-<img src="Data/birdnet_files.png" width="400">
+<img src="Data/pre-processing.png" width="600">
+
 
 ## Code
 
