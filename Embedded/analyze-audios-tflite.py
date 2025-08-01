@@ -25,7 +25,7 @@ import warnings
 warnings.simplefilter("error", RuntimeWarning)
 
 import sys
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../Training'))
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../util'))
 sys.path.append(PROJECT_ROOT)
 
 import birdnet_util.audio as audio
@@ -86,7 +86,7 @@ def analyze_folder(INPUT_PATH, OUTPUT_PATH, interpreter, LABELS, MIN_CONF, filen
         output_filename = os.path.splitext(f)[0] + "-predictions.txt"
         output_path = os.path.join(OUTPUT_PATH, output_filename)
 
-        if 1: #try:
+        try:
             sig, rate = audio.openAudioFile(full_path, SAMPLE_RATE, offset=0, duration=FILE_SPLITTING_DURATION, fmin=BANDPASS_FMIN, fmax=BANDPASS_FMAX)
             chunks = audio.splitSignal(sig, rate, SIG_LENGTH, SIG_OVERLAP, SIG_MINLEN)
 
@@ -129,7 +129,7 @@ def analyze_folder(INPUT_PATH, OUTPUT_PATH, interpreter, LABELS, MIN_CONF, filen
                     label = LABELS[predicted_class] if predicted_class < len(LABELS) else f"class_{pred_class}"
                     out_f.write(f"{k.split('-')[0]}\t{k.split('-')[1]}\t{LABELS[predicted_class]}\t{confidence:.2f}\t{f}\n")
                 
-        else: #except Exception as e:
+        except Exception as e:
             print(f"[Error] Cannot process audio file {os.path.join(INPUT_PATH, f)}: {e}")
             
         delta_time = (datetime.datetime.now() - start_time).total_seconds()

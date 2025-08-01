@@ -24,12 +24,6 @@ Adapted BirdNET scripts for running species classification and segmentation on r
 
 <img src="Data/birdnet_files.png" width="400">
 
-### Training
-
-Scripts for training DNN models on the spectrogram dataset.
-
-- `train_distill.py`: script to train a model using transfer learning from ImageNet or knowledge distillation from BirdNET's logits.
-- `utils.py`: Helper functions for data loading, training, and evaluation.
 
 ### Models
 
