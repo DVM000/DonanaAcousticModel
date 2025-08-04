@@ -48,25 +48,39 @@ def load_labels(LABEL_FILE):
     NUM_CLASSES = len(LABELS)
     return LABELS
 
-def apply_confidence_threshold(predictions, threshold=0.5):
+def apply_confidence_threshold(predictions, threshold=0.5, top_only=False):
     """
-    Filtra las predicciones usando un umbral de confianza.
-    
-    :param predictions: Las predicciones del modelo (probabilidades de cada clase).
-    :param threshold: El umbral de confianza. Solo las clases con una probabilidad superior a este valor se mantienen.
-    :return: Las clases predichas que superen el umbral y sus probabilidades.
+    Filters predictions using a confidence threshold.
+
+    - If top_only is True: keep only the highest prediction if it exceeds the threshold.
+    - If threshold == -1: keep only the highest prediction (regardless of confidence).
+    - Else: keep all predictions above the threshold.
     """
     filtered_predictions = {}
-    for k,pred in predictions.items():
-        max_prob = np.max(pred) # Salida de la red con mayor probabilidad
-        if max_prob >= threshold:
-            predicted_class = np.argmax(pred)  # Clase con mayor probabilidad
-            filtered_predictions[k]=(predicted_class, max_prob)
-    
-    return filtered_predictions
 
+    for k, pred in predictions.items():
+        #pred = pred[0]  # remove batch dimension
+        filtered_predictions[k] = []
+
+        if threshold == -1:
+            max_index = np.argmax(pred)
+            max_conf = pred[max_index]
+            filtered_predictions[k].append((max_index, max_conf))
+
+        elif top_only:
+            max_index = np.argmax(pred)
+            max_conf = pred[max_index]
+            if max_conf >= threshold:
+                filtered_predictions[k].append((max_index, max_conf))
+
+        else:
+            for i, c in enumerate(pred):
+                if c > threshold:
+                    filtered_predictions[k].append((i, c))
+
+    return filtered_predictions
   
-def analyze_folder(INPUT_PATH, OUTPUT_PATH, interpreter, LABELS, MIN_CONF, filename='predictions.txt', MAX_SEGMENTS=1000):
+def analyze_folder(INPUT_PATH, OUTPUT_PATH, interpreter, LABELS, MIN_CONF, top_only=False, filename='predictions.txt', MAX_SEGMENTS=1000):
 
     interpreter.allocate_tensors()
     input_details = interpreter.get_input_details()
@@ -121,13 +135,13 @@ def analyze_folder(INPUT_PATH, OUTPUT_PATH, interpreter, LABELS, MIN_CONF, filen
                 print_preds[f"{interval*SIG_LENGTH}-{(interval+1)*SIG_LENGTH}"] = predictions
                       
             # Mostrar las predicciones filtradas
-            filtered_predictions = apply_confidence_threshold(print_preds, MIN_CONF)
+            filtered_predictions = apply_confidence_threshold(print_preds, MIN_CONF, top_only)
             #print(filtered_predictions)
             with open(output_path, 'w') as out_f:
                 for k, p_c in filtered_predictions.items():
-                    predicted_class, confidence = p_c
-                    label = LABELS[predicted_class] if predicted_class < len(LABELS) else f"class_{pred_class}"
-                    out_f.write(f"{k.split('-')[0]}\t{k.split('-')[1]}\t{LABELS[predicted_class]}\t{confidence:.2f}\t{f}\n")
+                    for predicted_class, confidence in sorted(p_c, key=lambda x: -x[1]):
+                        label = LABELS[predicted_class] if predicted_class < len(LABELS) else f"class_{pred_class}"
+                        out_f.write(f"{k.split('-')[0]}\t{k.split('-')[1]}\t{LABELS[predicted_class]}\t{confidence:.2f}\t{f}\n")
                 
         except Exception as e:
             print(f"[Error] Cannot process audio file {os.path.join(INPUT_PATH, f)}: {e}")
@@ -162,11 +176,13 @@ if __name__ == "__main__":
     parser.add_argument("--i", help="Input data", action="store", default='AUDIOSTFM/test_files/Accipiter gentilis/')
     parser.add_argument("--o", help="Output folder", action="store", default='OUTPUT_FOLDER')
     parser.add_argument("--min_conf", help="confidence threshold", action="store", default=0.5, type=float)
+    parser.add_argument("--top_only", help="If set, keep only top prediction per segment if it exceeds the threshold.", action="store_true")
     args = parser.parse_args()
     
     INPUT_PATH = args.i
     OUTPUT_PATH = args.o
     MIN_CONF = args.min_conf
+    TOP_ONLY = args.top_only
 
     if not os.path.exists(OUTPUT_PATH):
         os.makedirs(OUTPUT_PATH)
@@ -176,6 +192,6 @@ if __name__ == "__main__":
     LABELS = load_labels(LABEL_FILE)
     print(LABELS)
     
-    analyze_folder(INPUT_PATH, OUTPUT_PATH, model, LABELS, MIN_CONF)
+    analyze_folder(INPUT_PATH, OUTPUT_PATH, model, LABELS, MIN_CONF, TOP_ONLY)
 
 
