@@ -33,7 +33,7 @@ Species list employed in this work.
 
 Example execution (see example prediction file `example-predictions.txt`):
 
-```python analyze-audios.py --i <audiofolder> --o <predictionsfolder> --min_conf 0.5```
+```python analyze-audios.py --i <audiofolder> --o <predictionsfolder> --min_conf 0.5 --overlap 0```
 
 
 ```

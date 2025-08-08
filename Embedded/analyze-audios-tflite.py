@@ -80,7 +80,7 @@ def apply_confidence_threshold(predictions, threshold=0.5, top_only=False):
 
     return filtered_predictions
   
-def analyze_folder(INPUT_PATH, OUTPUT_PATH, interpreter, LABELS, MIN_CONF, top_only=False, filename='predictions.txt', MAX_SEGMENTS=1000):
+def analyze_folder(INPUT_PATH, OUTPUT_PATH, interpreter, LABELS, MIN_CONF, OVERLAP, top_only=False, filename='predictions.txt', MAX_SEGMENTS=1000):
 
     interpreter.allocate_tensors()
     input_details = interpreter.get_input_details()
@@ -99,10 +99,11 @@ def analyze_folder(INPUT_PATH, OUTPUT_PATH, interpreter, LABELS, MIN_CONF, top_o
         
         output_filename = os.path.splitext(f)[0] + "-predictions.txt"
         output_path = os.path.join(OUTPUT_PATH, output_filename)
-
+        start, end = 0, SIG_LENGTH
+        
         try:
             sig, rate = audio.openAudioFile(full_path, SAMPLE_RATE, offset=0, duration=FILE_SPLITTING_DURATION, fmin=BANDPASS_FMIN, fmax=BANDPASS_FMAX)
-            chunks = audio.splitSignal(sig, rate, SIG_LENGTH, SIG_OVERLAP, SIG_MINLEN)
+            chunks = audio.splitSignal(sig, rate, SIG_LENGTH, OVERLAP, SIG_MINLEN)
 
             for interval, y in enumerate(chunks[:MAX_SEGMENTS]):
                 spec, _ = spectrogram(y, rate, shape=(128, 224))
@@ -132,8 +133,10 @@ def analyze_folder(INPUT_PATH, OUTPUT_PATH, interpreter, LABELS, MIN_CONF, top_o
                 predicted_class = np.argmax(predictions)
                 #print(predicted_class, LABELS[predicted_class], np.max(predictions))
           
-                print_preds[f"{interval*SIG_LENGTH}-{(interval+1)*SIG_LENGTH}"] = predictions
-                      
+                print_preds[f"{start}-{end}"] = predictions
+                start += SIG_LENGTH - OVERLAP
+                end = start + SIG_LENGTH  
+                
             # Mostrar las predicciones filtradas
             filtered_predictions = apply_confidence_threshold(print_preds, MIN_CONF, top_only)
             #print(filtered_predictions)
@@ -161,7 +164,7 @@ FILE_SPLITTING_DURATION = 600
 BANDPASS_FMIN = 0
 BANDPASS_FMAX = 15000
 SIG_LENGTH = 3.0
-SIG_OVERLAP = 0
+#SIG_OVERLAP = 0
 SIG_MINLEN = SIG_LENGTH
 MAX_LIMIT = 1000
 IMG_HEIGHT = 224
@@ -176,12 +179,14 @@ if __name__ == "__main__":
     parser.add_argument("--i", help="Input data", action="store", default='AUDIOSTFM/test_files/Accipiter gentilis/')
     parser.add_argument("--o", help="Output folder", action="store", default='OUTPUT_FOLDER')
     parser.add_argument("--min_conf", help="confidence threshold", action="store", default=0.5, type=float)
+    parser.add_argument("--overlap", help="Overlap of prediction segments", type=float, default=0.0)
     parser.add_argument("--top_only", help="If set, keep only top prediction per segment if it exceeds the threshold.", action="store_true")
     args = parser.parse_args()
     
     INPUT_PATH = args.i
     OUTPUT_PATH = args.o
     MIN_CONF = args.min_conf
+    OVERLAP = args.overlap
     TOP_ONLY = args.top_only
 
     if not os.path.exists(OUTPUT_PATH):
@@ -192,6 +197,6 @@ if __name__ == "__main__":
     LABELS = load_labels(LABEL_FILE)
     print(LABELS)
     
-    analyze_folder(INPUT_PATH, OUTPUT_PATH, model, LABELS, MIN_CONF, TOP_ONLY)
+    analyze_folder(INPUT_PATH, OUTPUT_PATH, model, LABELS, MIN_CONF, OVERLAP, TOP_ONLY)
 
 
