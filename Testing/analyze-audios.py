@@ -73,7 +73,8 @@ def load_labels(LABEL_FILE):
     NUM_CLASSES = len(LABELS)
     return LABELS
 
-def apply_confidence_threshold(predictions, threshold=0.5, top_only=False):
+
+def filter_prediction(predictions, start, end, min_conf=0.5, top_only=False):
     """
     Filters predictions using a confidence threshold.
 
@@ -81,29 +82,24 @@ def apply_confidence_threshold(predictions, threshold=0.5, top_only=False):
     - If threshold == -1: keep only the highest prediction (regardless of confidence).
     - Else: keep all predictions above the threshold.
     """
-    filtered_predictions = {}
+    key = f"{start}-{end}"
+    results = []
 
-    for k, pred in predictions.items():
-        pred = pred[0]  # remove batch dimension
-        filtered_predictions[k] = []
+    if min_conf == -1:
+        max_index = int(np.argmax(predictions))
+        max_conf = float(predictions[max_index])
+        results.append((max_index, max_conf))
 
-        if threshold == -1:
-            max_index = np.argmax(pred)
-            max_conf = pred[max_index]
-            filtered_predictions[k].append((max_index, max_conf))
+    elif top_only:
+        max_index = int(np.argmax(predictions))
+        max_conf = float(predictions[max_index])
+        if max_conf >= min_conf:
+            results.append((max_index, max_conf))
 
-        elif top_only:
-            max_index = np.argmax(pred)
-            max_conf = pred[max_index]
-            if max_conf >= threshold:
-                filtered_predictions[k].append((max_index, max_conf))
+    else:
+        results = [(int(i), float(c)) for i, c in enumerate(predictions) if c >= min_conf]
 
-        else:
-            for i, c in enumerate(pred):
-                if c > threshold:
-                    filtered_predictions[k].append((i, c))
-
-    return filtered_predictions
+    return key, results
 
   
 def analyze_folder(INPUT_PATH, OUTPUT_PATH, model, LABELS, MIN_CONF, OVERLAP, top_only=False, filename='predictions.txt', MAX_SEGMENTS=1000):
@@ -111,6 +107,7 @@ def analyze_folder(INPUT_PATH, OUTPUT_PATH, model, LABELS, MIN_CONF, OVERLAP, to
     listfiles = sorted(os.listdir(INPUT_PATH))
     print(bcolors.OKCYAN+ f"Found {len(listfiles)} files in {INPUT_PATH}"+bcolors.ENDC)
  
+    i = 0
     for f in tqdm(listfiles):
         full_path = os.path.join(INPUT_PATH, f)
         chunk_preds = []
@@ -142,27 +139,32 @@ def analyze_folder(INPUT_PATH, OUTPUT_PATH, model, LABELS, MIN_CONF, OVERLAP, to
                 img = img.astype(np.float32) * rescaling
 
                 # Model inference
-                predictions = model.predict(img, verbose=False)
+                predictions = model.predict(img, verbose=False)[0]  # remove batch dimension
                 predicted_class = np.argmax(predictions)
                 #print(predicted_class, LABELS[predicted_class], np.max(predictions))
-          
-                print_preds[f"{start}-{end}"] = predictions
+                
+                # Confidence filtering (do not save full vector)
+                key, filtered_predictions = filter_prediction(predictions, start, end, MIN_CONF, top_only)
+                print_preds[key] = filtered_predictions
                 start += SIG_LENGTH - OVERLAP
-                end = start + SIG_LENGTH 
-                    
+                end = start + SIG_LENGTH         
+                                    
             # Mostrar las predicciones filtradas
-            filtered_predictions = apply_confidence_threshold(print_preds, MIN_CONF, top_only)
+            #filtered_predictions = apply_confidence_threshold(print_preds, MIN_CONF, top_only)
             #print(filtered_predictions)
             with open(output_path, 'w') as out_f:
-                for k, p_c in filtered_predictions.items():
+                for k, p_c in print_preds.items():
                     for predicted_class, confidence in sorted(p_c, key=lambda x: -x[1]):
                         label = LABELS[predicted_class] if predicted_class < len(LABELS) else f"class_{pred_class}"
                         out_f.write(f"{k.split('-')[0]}\t{k.split('-')[1]}\t{LABELS[predicted_class]}\t{confidence:.2f}\t{f}\n")
                 
         except Exception as e:
             print(f"[Error] Cannot process audio file {os.path.join(INPUT_PATH, f)}: {e}")
-                
-       
+        
+        i = i + 1
+        if i % 100 == 0:  # cada 50 archivos, liberar memoria
+            tf.keras.backend.clear_session()
+
     print(bcolors.OKCYAN+ f"Saved results into {OUTPUT_PATH}"+bcolors.ENDC)
 
     
@@ -182,6 +184,8 @@ IMG_WIDTH = 224
 rescaling = 1.0 / 255.0
 MODEL_PATH = "../Models/mobilenet-224-337wi-ft.h5" 
 LABEL_FILE = "../Models/species-list-337.txt"
+#MODEL_PATH = "../Models/mobilenet-224-305.h5" 
+#LABEL_FILE = "../Models/species-list-305.txt"
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
