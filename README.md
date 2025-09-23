@@ -5,7 +5,7 @@ Python scripts for bird species classification from audio recordings. This work 
 Models were trained with data from [Xeno-Canto](https://xeno-canto.org/) and [iNaturalist Sounds](https://proceedings.neurips.cc/paper_files/paper/2024/hash/ef3713b8d72266e803f9346088fed92d-Abstract-Datasets_and_Benchmarks_Track.html). These recordings were pre-segmented using BirdNET, to collect 3-second segments ready for training:
 
 
-<img src="Data/pre-processing.png" width="600">
+<img src="Data/pre-processing.pdf" width="600">
 
 
 ## Code
