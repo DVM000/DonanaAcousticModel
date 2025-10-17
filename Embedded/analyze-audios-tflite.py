@@ -168,10 +168,11 @@ SIG_LENGTH = 3.0
 #SIG_OVERLAP = 0
 SIG_MINLEN = SIG_LENGTH
 MAX_LIMIT = 1000
-IMG_HEIGHT = 224
-IMG_WIDTH = 224
+IMG_HEIGHT = 224 #128 
+IMG_WIDTH = IMG_HEIGHT
 rescaling = 1.0 / 255.0
 MODEL_PATH = "../Models/mobilenet-224-337wi-ft.tflite" 
+#MODEL_PATH = "../Models/mobilenet-128-337wi-ft.tflite" 
 LABEL_FILE = "../Models/species-list-337.txt"
 TFLITE_THREADS = max(1, multiprocessing.cpu_count() // 2)
 
