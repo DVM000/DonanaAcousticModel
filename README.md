@@ -28,40 +28,6 @@ Additionally, models trained on a subset of **305 species** are denoted as *AVIS
 - `mobilenet-128-305.*`
 
 
-**Evaluation results**
-
-Evaluation was conducted on two different datasets:
-
-**1) Focal Recordings**
-
-Performance metrics on focal recordings from Xeno-Canto and iNaturalist Sounds, using a confidence threshold of 0.5 and considering the top-1 prediction averaged across 3-second windows:
-
-| Model                     | Top-1 Accuracy | F1-score (Macro) |
-|--------------------------|----------------|------------------|
-| mobilenet-224-337wi-ft.h5| 0.8025         | 0.6958           |
-| mobilenet-128-337wi-ft.h5| 0.7680         | 0.6558           |
-| BirdNET                  | 0.8623         | 0.7850           |
-
-
-**2) Soundscapes**
-
-Performance metrics for three different soundscape datasets. Results are reported at both the vocalization-level (or 5-min census-level for Doñana2425) and dataset-level:
-
-| Dataset        | Model       | P (Vocalization) | R (Vocalization) | F1 (Vocalization) | P (Dataset) | R (Dataset) | F1 (Dataset) |
-| -------------- | ----------- | ---------------- | ---------------- | ----------------- | ----------- | ----------- | ------------ |
-| **Doñana2425** | AVISNet-224 | 0.32             | 0.35             | 0.33              | 0.39        | 0.83        | 0.53         |
-|                | AVISNet-128 | 0.29             | 0.29             | 0.29              | 0.42        | 0.84        | 0.56         |
-| **WABAD**      | AVISNet-224 | 0.43             | 0.34             | 0.38              | 0.56        | 0.98        | 0.71         |
-|                | AVISNet-128 | 0.39             | 0.32             | 0.35              | 0.58        | 0.97        | 0.72         |
-| **NIPS4BPlus** | AVISNet-224 | 0.61             | 0.29             | 0.39              | 0.49        | 0.80        | 0.61         |
-|                | AVISNet-128 | 0.41             | 0.34             | 0.38              | 0.53        | 0.78        | 0.63         |
-
-
-
-### Data
-
-Species list employed in this work.
-
 ### Testing & Embedded
 
 End-to-end utilities to load a trained model and evaluate it on audio files, producing classification results.
@@ -86,4 +52,38 @@ cat example-predictions.txt
 ### Notebooks
 
 - `example-analyze-tflite.ipynb`: example of loading a trained model and evaluate it an audio file, showing classification results.
+
+### Data
+
+Species list employed in this work.
+
+### Evaluation results
+
+Evaluation was conducted on two different datasets:
+
+**1) Focal Recordings**
+
+Performance metrics on focal recordings from Xeno-Canto and iNaturalist Sounds, using a confidence threshold of 0.5 and considering the top-1 prediction averaged across 3-second windows:
+
+| Model                     | Top-1 Accuracy | F1-score (Macro) |
+|--------------------------|----------------|------------------|
+| AVISNet-224              | 0.8025         | 0.6958           |
+| AVISNet-128              | 0.7680         | 0.6558           |
+| BirdNET                  | 0.8623         | 0.7850           |
+
+
+**2) Soundscapes**
+
+Performance metrics for three different soundscape datasets. Results are reported at both the vocalization-level (or 5-min census-level for Doñana2425) and dataset-level:
+
+| Dataset        | Model       | P (Voc) | R (Voc) | F1 (Voc) | P (Dataset) | R (Dataset) | F1 (Dataset) |
+| -------------- | ----------- | ---------------- | ---------------- | ----------------- | ----------- | ----------- | ------------ |
+| **Doñana2425** | AVISNet-224 | 0.32             | 0.35             | 0.33              | 0.39        | 0.83        | 0.53         |
+|                | AVISNet-128 | 0.29             | 0.29             | 0.29              | 0.42        | 0.84        | 0.56         |
+| **WABAD**      | AVISNet-224 | 0.43             | 0.34             | 0.38              | 0.56        | 0.98        | 0.71         |
+|                | AVISNet-128 | 0.39             | 0.32             | 0.35              | 0.58        | 0.97        | 0.72         |
+| **NIPS4BPlus** | AVISNet-224 | 0.61             | 0.29             | 0.39              | 0.49        | 0.80        | 0.61         |
+|                | AVISNet-128 | 0.41             | 0.34             | 0.38              | 0.53        | 0.78        | 0.63         |
+
+
 
