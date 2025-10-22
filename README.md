@@ -14,8 +14,7 @@ Models were trained with data from [Xeno-Canto](https://xeno-canto.org/) and [iN
 
 Output folder with trained models.  
 Model names follow this notation:  
-`<CNN>-<resolution>-<n_labels>-<extra>`,  
-where `wi` stands for *weight imprinting*, `ft` for *fine-tuning*, and `q` for *quantized*.  
+`<CNN>-<resolution>-<n_labels>-<extra>`, where `wi` stands for *weight imprinting*, `ft` for *fine-tuning*, and `q` for *quantized*.  
 
 Reference names:
 
@@ -30,7 +29,7 @@ Additionally, models trained on a subset of **305 species** are denoted as *AVIS
 See more information [here](Models/README-models.md).
 
 
-### Testing & Embedded
+### Testing
 
 End-to-end utilities to load a trained model and evaluate it on audio files, producing classification results.
 
@@ -38,6 +37,8 @@ End-to-end utilities to load a trained model and evaluate it on audio files, pro
 - `analyze-audios-tflite.py`: TFLite-based script, for edge inference.
 
 Example execution (see example prediction file `example-predictions.txt`):
+
+```cd Testing```
 
 ```python analyze-audios.py --i <audiofolder> --o <predictionsfolder> --min_conf 0.5 --overlap 0```
 

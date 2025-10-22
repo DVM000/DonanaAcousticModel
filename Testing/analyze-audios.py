@@ -69,7 +69,7 @@ def load_labels(LABEL_FILE):
     with open(LABEL_FILE, "r") as f:
        LABELS = [line.strip() for line in f]
 
-    print(f"# Target categories: {len(LABELS)}")
+    print(bcolors.OKCYAN+ f"# Target categories: {len(LABELS)}" + bcolors.ENDC)
     NUM_CLASSES = len(LABELS)
     return LABELS
 
@@ -182,13 +182,13 @@ MAX_LIMIT = 1000
 IMG_HEIGHT = 224
 IMG_WIDTH = 224
 rescaling = 1.0 / 255.0
-MODEL_PATH = "../Models/mobilenet-224-337wi-ft.h5" 
-LABEL_FILE = "../Models/species-list-337.txt"
-#MODEL_PATH = "../Models/mobilenet-224-305.h5" 
+#MODEL_PATH = "../Models/mobilenet-224-337wi-ft.h5" 
 #LABEL_FILE = "../Models/species-list-305.txt"
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("--model", help="Model", action="store", default="../Models/mobilenet-224-337wi-ft.h5")
     parser.add_argument("--i", help="Input data", action="store", default='AUDIOSTFM/test_files/Accipiter gentilis/')
     parser.add_argument("--o", help="Output folder", action="store", default='OUTPUT_FOLDER')
     parser.add_argument("--min_conf", help="confidence threshold", action="store", default=0.5, type=float)
@@ -196,19 +196,24 @@ if __name__ == "__main__":
     parser.add_argument("--top_only", help="If set, keep only top prediction per segment if it exceeds the threshold.", action="store_true")
     args = parser.parse_args()
     
+    MODEL_PATH = args.model
     INPUT_PATH = args.i
     OUTPUT_PATH = args.o
     MIN_CONF = args.min_conf
     OVERLAP = args.overlap
     TOP_ONLY = args.top_only
     
+    LABEL_FILE = "../Models/species-list-337.txt" if "337" in MODEL_PATH else "../Models/species-list-305.txt"
+    IMG_HEIGHT = 224 if "224" in MODEL_PATH else 128
+    IMG_WIDTH = IMG_HEIGHT
+    print(bcolors.OKCYAN+ f"Using model {MODEL_PATH} with {IMG_HEIGHT}x{IMG_HEIGHT} input resolution." + bcolors.ENDC)
+    
     if not os.path.exists(OUTPUT_PATH):
         os.makedirs(OUTPUT_PATH)
-
-
+        
+    LABELS = load_labels(LABEL_FILE)    
     model = model_loading(MODEL_PATH)
-    LABELS = load_labels(LABEL_FILE)
-    print(LABELS)
+    #print(LABELS)
     
     analyze_folder(INPUT_PATH, OUTPUT_PATH, model, LABELS, MIN_CONF, OVERLAP, TOP_ONLY)
 

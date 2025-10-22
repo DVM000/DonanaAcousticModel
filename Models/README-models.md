@@ -3,18 +3,13 @@
 
 
 Model names follow this notation:  
-`<CNN>-<resolution>-<n_labels>-<extra>`,  
-where `wi` stands for *weight imprinting*, `ft` for *fine-tuning*, and `q` for *quantized*.  
+`<CNN>-<resolution>-<n_labels>-<extra>`,  where `wi` stands for *weight imprinting*, `ft` for *fine-tuning*, and `q` for *quantized*.  
 
 Reference names:
 
 - `mobilenet-224-337wi-ft.*` → **AVISNet-224**  
 - `mobilenet-128-337wi-ft.*` → **AVISNet-128**
 
-Additionally, models trained on a subset of **305 species** are denoted as *AVISNet-224 (305)* and *AVISNet-128 (305)*, corresponding to:
-
-- `mobilenet-224-305.*`  
-- `mobilenet-128-305.*`
 
 When runnning inference, please select the corresponding species-list file, according to number of model classes:
 
