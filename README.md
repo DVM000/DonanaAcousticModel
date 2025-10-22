@@ -27,6 +27,8 @@ Additionally, models trained on a subset of **305 species** are denoted as *AVIS
 - `mobilenet-224-305.*`  
 - `mobilenet-128-305.*`
 
+See more information [here](Models/README-models.md).
+
 
 ### Testing & Embedded
 
@@ -53,9 +55,6 @@ cat example-predictions.txt
 
 - `example-analyze-tflite.ipynb`: example of loading a trained model and evaluate it an audio file, showing classification results.
 
-### Data
-
-Species list employed in this work.
 
 ### Evaluation results
 
