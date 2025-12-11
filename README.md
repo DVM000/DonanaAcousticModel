@@ -1,4 +1,4 @@
-# DonanaAcousticModel
+# AVISNET: Acoustic Vocalization Identification Network for avian Species associated to Doñana National Park
 
 Python scripts for bird species classification from audio recordings. This work is focused on species frequently observed in the Doñana Biological Reserve (Spain) - available [here](Data/SpeciesList.txt).
 
@@ -44,8 +44,7 @@ Example execution (see example prediction file `example-predictions.txt`):
 
 ```python analyze-audios-tflite.py --i <audiofolder> --o <predictionsfolder> --min_conf 0.5 --overlap 0```
 
-```
-cat example-predictions.txt 
+```cat example-predictions.txt 
 0.0     3.0     Bubo bubo       1.00    113954.mp3
 6.0     9.0     Bubo bubo       1.00    113954.mp3
 12.0    15.0    Ardea cinerea   0.97    113954.mp3
@@ -78,8 +77,8 @@ Performance metrics for three different soundscape datasets. Results are reporte
 
 | Dataset        | Model       | P (Voc) | R (Voc) | F1 (Voc) | P (Dataset) | R (Dataset) | F1 (Dataset) |
 | -------------- | ----------- | ---------------- | ---------------- | ----------------- | ----------- | ----------- | ------------ |
-| **Doñana2425** | AVISNet-224 | 0.32             | 0.35             | 0.33              | 0.39        | 0.83        | 0.53         |
-|                | AVISNet-128 | 0.29             | 0.29             | 0.29              | 0.42        | 0.84        | 0.56         |
+| **Doñana2425** | AVISNet-224 | 0.32             | 0.35             | 0.33              | 0.43        | 0.80        | 0.56         |
+|                | AVISNet-128 | 0.29             | 0.29             | 0.29              | 0.43        | 0.79        | 0.56         |
 | **WABAD**      | AVISNet-224 | 0.43             | 0.34             | 0.38              | 0.56        | 0.98        | 0.71         |
 |                | AVISNet-128 | 0.39             | 0.32             | 0.35              | 0.58        | 0.97        | 0.72         |
 | **NIPS4BPlus** | AVISNet-224 | 0.61             | 0.29             | 0.39              | 0.49        | 0.80        | 0.61         |
